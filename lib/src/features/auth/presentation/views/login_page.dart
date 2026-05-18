@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../viewmodels/login_view_model.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_text_field.dart';
+import '../../../../core/theme/main_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -160,6 +161,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submitLogin() async {
+    /*
     widget.viewModel.clearFeedback();
 
     if (!_formKey.currentState!.validate()) {
@@ -170,6 +172,9 @@ class _LoginPageState extends State<LoginPage> {
       email: _emailController.text,
       password: _passwordController.text,
     );
+    */
+
+    Navigator.of(context).pushReplacementNamed(MainPage.routeName);
   }
 
   String? _validateEmail(String? value) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/theme/main_page.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/presentation/viewmodels/login_view_model.dart';
@@ -29,6 +30,7 @@ class TaFeitoApp extends StatelessWidget {
         LoginPage.routeName: (_) => LoginPage(
               viewModel: LoginViewModel(authRepository: authRepository),
             ),
+        MainPage.routeName: (_) => const MainPage(),
       },
     );
   }
