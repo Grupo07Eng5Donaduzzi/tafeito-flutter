@@ -1,15 +1,74 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
-class ProfilePage extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Modelo para puxar os itens da API posteriormente
-    // final userData = context.watch<ProfileViewModel>().user;
-    final String userName = ''; // userData?.name ?? ''
-    final String userEmail = ''; // userData?.email ?? ''
+  State<ProfilePage> createState() => _ProfilePageState();
+}
 
+class _ProfilePageState extends State<ProfilePage> {
+  File? _profileImage;
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source);
+    if (picked == null) return;
+
+    setState(() {
+      _profileImage = File(picked.path);
+    });
+  }
+
+  // Modal de edição de foto padrão de mercado
+  void _showEditPhotoModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: Color(0xFF1F2937),
+                ),
+                title: const Text(
+                  'Escolher da galeria',
+                  style: TextStyle(color: Color(0xFF1F2937)),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -21,11 +80,13 @@ class ProfilePage extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Stack(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 48,
-                    backgroundImage: NetworkImage(
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                    ),
+                    backgroundImage: _profileImage != null
+                        ? FileImage(_profileImage!)
+                        : const NetworkImage(
+                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                          ),
                   ),
                   Positioned(
                     bottom: 0,
@@ -39,7 +100,11 @@ class ProfilePage extends StatelessWidget {
                       ),
                       child: IconButton(
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.edit_square, size: 16, color: Colors.white),
+                        icon: const Icon(
+                          Icons.edit_square,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                         onPressed: () {
                           _showEditPhotoModal(context);
                         },
@@ -58,21 +123,36 @@ class ProfilePage extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          _buildInputField(label: 'Nome', initialValue: userName),
+          _buildInputField(
+            label: 'Nome',
+            controller: _nameController,
+          ),
           const SizedBox(height: 16),
-          _buildInputField(label: 'Email', initialValue: userEmail),
+          _buildInputField(
+            label: 'Email',
+            controller: _emailController,
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2F66F6),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             onPressed: () {
-              // Ação salvar alterações
+// (Preparado) salvar alterações via API/branch de CurrentUser.
+              // Aqui ainda está sem wiring completo no app.
             },
-            child: const Text('Salvar alterações', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Salvar alterações',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
 
           const Padding(
@@ -86,23 +166,43 @@ class ProfilePage extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          _buildInputField(label: 'Senha atual', hintText: 'Digite a senha atual', isPassword: true),
+          _buildInputField(
+            label: 'Senha atual',
+            hintText: 'Digite a senha atual',
+            isPassword: true,
+          ),
           const SizedBox(height: 16),
-          _buildInputField(label: 'Nova senha', hintText: 'Digite a nova senha', isPassword: true),
+          _buildInputField(
+            label: 'Nova senha',
+            hintText: 'Digite a nova senha',
+            isPassword: true,
+          ),
           const SizedBox(height: 16),
-          _buildInputField(label: 'Confirmar nova senha', hintText: 'Repita a nova senha', isPassword: true),
+          _buildInputField(
+            label: 'Confirmar nova senha',
+            hintText: 'Repita a nova senha',
+            isPassword: true,
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2F66F6),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             onPressed: () {
-              // Ação atualizar senha
+              // Ação atualizar senha (não integrada nesta etapa)
             },
-            child: const Text('Atualizar senha', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Atualizar senha',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
 
           const Padding(
@@ -116,17 +216,24 @@ class ProfilePage extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
+
           // Implementação do FutureBuilder para simular a requisição de API
           FutureBuilder<List<MockPayment>>(
             future: _fetchMockPaymentsFromApi(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF2F66F6)));
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF2F66F6),
+                  ),
+                );
               }
-              
+
               if (snapshot.hasError) {
-                return const Text('Erro ao carregar os pagamentos.', style: TextStyle(color: Colors.red));
+                return const Text(
+                  'Erro ao carregar os pagamentos.',
+                  style: TextStyle(color: Colors.red),
+                );
               }
 
               final payments = snapshot.data ?? [];
@@ -135,7 +242,9 @@ class ProfilePage extends StatelessWidget {
               }
 
               return Column(
-                children: payments.map((payment) => _buildPaymentItem(payment)).toList(),
+                children: payments
+                    .map((payment) => _buildPaymentItem(payment))
+                    .toList(),
               );
             },
           ),
@@ -151,8 +260,7 @@ class ProfilePage extends StatelessWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          
-          // Botão Sair da conta
+
           _buildOptionButton(
             label: 'Sair da conta',
             backgroundColor: const Color(0xFFD1D5DB),
@@ -163,15 +271,14 @@ class ProfilePage extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          
-          // Botão Excluir conta
+
           _buildOptionButton(
             label: 'Excluir conta',
             backgroundColor: const Color(0xFFE55B4B),
             textColor: Colors.white,
             iconColor: Colors.white,
             onPressed: () {
-              // Ação excluir
+              // Ação excluir (não integrada nesta etapa)
             },
           ),
         ],
@@ -179,46 +286,9 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Modal de edição de foto padrão de mercado
-  void _showEditPhotoModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: Color(0xFF1F2937)),
-                title: const Text('Tirar foto', style: TextStyle(color: Color(0xFF1F2937))),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Implementar ImagePicker com ImageSource.camera
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF1F2937)),
-                title: const Text('Escolher da galeria', style: TextStyle(color: Color(0xFF1F2937))),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Implementar ImagePicker com ImageSource.gallery
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Helper para construir os inputs (Campos de texto)
   Widget _buildInputField({
     required String label,
-    String? initialValue,
+    TextEditingController? controller,
     String? hintText,
     bool isPassword = false,
   }) {
@@ -227,16 +297,23 @@ class ProfilePage extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1F2937)),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1F2937),
+          ),
         ),
         const SizedBox(height: 6),
         TextFormField(
-          initialValue: initialValue,
+          controller: controller,
           obscureText: isPassword,
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
             filled: true,
             fillColor: const Color(0xFFF9FAFB),
             enabledBorder: OutlineInputBorder(
@@ -253,7 +330,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Helper para construir os botões de Opções da parte inferior
   Widget _buildOptionButton({
     required String label,
     required Color backgroundColor,
@@ -266,8 +342,13 @@ class ProfilePage extends StatelessWidget {
       child: TextButton(
         style: TextButton.styleFrom(
           backgroundColor: backgroundColor,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         onPressed: onPressed,
         child: Row(
@@ -275,7 +356,11 @@ class ProfilePage extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             Icon(Icons.chevron_right, color: iconColor),
           ],
@@ -284,8 +369,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Helper para construir a UI de um único item de pagamento 
-  // (Extraído para facilitar a replicação com os dados da API)
   Widget _buildPaymentItem(MockPayment payment) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -303,41 +386,62 @@ class ProfilePage extends StatelessWidget {
             children: [
               Text(
                 payment.title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 payment.authorDate,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
               ),
             ],
           ),
           Text(
             payment.amount,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF111827),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // Substituir por uma chamada real ao Repositório/ViewModel no futuro
   Future<List<MockPayment>> _fetchMockPaymentsFromApi() async {
-    // Simulando atraso de requisição de rede de 1.5 segundos
     await Future.delayed(const Duration(milliseconds: 1500));
-    
+
     return [
-      MockPayment(title: 'Plantio de jardim', authorDate: 'Ana  •  18/03/2026', amount: 'R\$ 100,00'),
-      MockPayment(title: 'Poda de árvore', authorDate: 'Carlos  •  15/03/2026', amount: 'R\$ 250,00'),
+      MockPayment(
+        title: 'Plantio de jardim',
+        authorDate: 'Ana  •  18/03/2026',
+        amount: 'R\$ 100,00',
+      ),
+      MockPayment(
+        title: 'Poda de árvore',
+        authorDate: 'Carlos  •  15/03/2026',
+        amount: 'R\$ 250,00',
+      ),
     ];
   }
 }
 
-// Modelo Fake de Pagamento para simular a resposta da API
 class MockPayment {
   final String title;
   final String authorDate;
   final String amount;
 
-  MockPayment({required this.title, required this.authorDate, required this.amount});
+  MockPayment({
+    required this.title,
+    required this.authorDate,
+    required this.amount,
+  });
 }
+
