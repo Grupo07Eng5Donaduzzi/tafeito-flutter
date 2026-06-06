@@ -10,4 +10,3 @@ abstract interface class ProfileRepository {
     required UpdateUserRequest request,
   });
 }
-

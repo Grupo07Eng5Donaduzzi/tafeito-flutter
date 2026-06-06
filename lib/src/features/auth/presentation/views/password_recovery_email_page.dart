@@ -1,33 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/theme/main_page.dart';
-import '../viewmodels/login_view_model.dart';
+import '../viewmodels/password_recovery_email_view_model.dart';
+import '../widgets/auth_feedback_message.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_text_field.dart';
-import 'password_recovery_email_page.dart';
-import 'register_page.dart';
+import 'login_page.dart';
+import 'password_recovery_code_page.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({required this.viewModel, super.key});
+class PasswordRecoveryEmailPage extends StatefulWidget {
+  const PasswordRecoveryEmailPage({
+    required this.viewModel,
+    super.key,
+  });
 
-  static const routeName = '/login';
+  static const routeName = '/password-recovery';
 
-  final LoginViewModel viewModel;
+  final PasswordRecoveryEmailViewModel viewModel;
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<PasswordRecoveryEmailPage> createState() =>
+      _PasswordRecoveryEmailPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _PasswordRecoveryEmailPageState extends State<PasswordRecoveryEmailPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -52,7 +54,7 @@ class _LoginPageState extends State<LoginPage> {
                         const AuthLogo(),
                         const SizedBox(height: 34),
                         Text(
-                          'Entrar na conta',
+                          'Recuperar senha',
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall
@@ -64,53 +66,22 @@ class _LoginPageState extends State<LoginPage> {
                         const SizedBox(height: 18),
                         AuthTextField(
                           controller: _emailController,
-                          label: 'Email',
+                          label: 'Email de cadastro',
                           hintText: 'email@exemplo.com',
                           keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
+                          textInputAction: TextInputAction.done,
                           validator: _validateEmail,
                         ),
                         const SizedBox(height: 18),
-                        AuthTextField(
-                          controller: _passwordController,
-                          label: 'Senha',
-                          hintText: '********',
-                          obscureText: true,
-                          textInputAction: TextInputAction.done,
-                          validator: _validatePassword,
-                        ),
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: widget.viewModel.isLoading
-                                ? null
-                                : () {
-                                    Navigator.of(context).pushNamed(
-                                      PasswordRecoveryEmailPage.routeName,
-                                    );
-                                  },
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Esqueceu a senha?',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
                         if (widget.viewModel.errorMessage != null) ...[
-                          _FeedbackMessage(
+                          AuthFeedbackMessage(
                             message: widget.viewModel.errorMessage!,
                             isError: true,
                           ),
                           const SizedBox(height: 12),
                         ],
                         if (widget.viewModel.successMessage != null) ...[
-                          _FeedbackMessage(
+                          AuthFeedbackMessage(
                             message: widget.viewModel.successMessage!,
                             isError: false,
                           ),
@@ -118,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
                         ],
                         ElevatedButton(
                           onPressed:
-                              widget.viewModel.isLoading ? null : _submitLogin,
+                              widget.viewModel.isLoading ? null : _submitEmail,
                           child: widget.viewModel.isLoading
                               ? const SizedBox.square(
                                   dimension: 22,
@@ -127,29 +98,31 @@ class _LoginPageState extends State<LoginPage> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Acessar'),
+                              : const Text('Enviar codigo'),
                         ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
+                        const SizedBox(height: 14),
+                        Row(
                           children: [
                             const Text(
-                              'Ainda nao tem conta? ',
+                              'Lembrou a senha? ',
                               style: TextStyle(color: AppTheme.textMuted),
                             ),
                             TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pushReplacementNamed(
-                                  RegisterPage.routeName,
-                                );
-                              },
+                              onPressed: widget.viewModel.isLoading
+                                  ? null
+                                  : () {
+                                      Navigator.of(context)
+                                          .pushReplacementNamed(
+                                        LoginPage.routeName,
+                                      );
+                                    },
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               child: const Text(
-                                'Registre-se',
+                                'Entrar',
                                 style: TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),
@@ -167,23 +140,24 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _submitLogin() async {
+  Future<void> _submitEmail() async {
     widget.viewModel.clearFeedback();
 
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    final didLogin = await widget.viewModel.login(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
+    final email = _emailController.text.trim();
+    final didSend = await widget.viewModel.sendCode(email: email);
 
-    if (!mounted || !didLogin) {
+    if (!mounted || !didSend) {
       return;
     }
 
-    Navigator.of(context).pushReplacementNamed(MainPage.routeName);
+    Navigator.of(context).pushNamed(
+      PasswordRecoveryCodePage.routeName,
+      arguments: email,
+    );
   }
 
   String? _validateEmail(String? value) {
@@ -196,37 +170,5 @@ class _LoginPageState extends State<LoginPage> {
       return 'Informe um email valido.';
     }
     return null;
-  }
-
-  String? _validatePassword(String? value) {
-    final password = value ?? '';
-    if (password.isEmpty) {
-      return 'Informe sua senha.';
-    }
-    return null;
-  }
-}
-
-class _FeedbackMessage extends StatelessWidget {
-  const _FeedbackMessage({
-    required this.message,
-    required this.isError,
-  });
-
-  final String message;
-  final bool isError;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isError ? Colors.red.shade700 : Colors.green.shade700;
-
-    return Text(
-      message,
-      style: TextStyle(
-        color: color,
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-      ),
-    );
   }
 }

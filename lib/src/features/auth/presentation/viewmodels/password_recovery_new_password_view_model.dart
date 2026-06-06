@@ -1,19 +1,14 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../../core/session/session_manager.dart';
 import '../../../../core/result/result.dart';
-import '../../data/models/login_request.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-class LoginViewModel extends ChangeNotifier {
-  LoginViewModel({
+class PasswordRecoveryNewPasswordViewModel extends ChangeNotifier {
+  PasswordRecoveryNewPasswordViewModel({
     required AuthRepository authRepository,
-    required SessionManager sessionManager,
-  })  : _authRepository = authRepository,
-        _sessionManager = sessionManager;
+  }) : _authRepository = authRepository;
 
   final AuthRepository _authRepository;
-  final SessionManager _sessionManager;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -29,33 +24,32 @@ class LoginViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login({
+  Future<bool> resetPassword({
     required String email,
-    required String password,
+    required String code,
+    required String newPassword,
   }) async {
     _setLoading(true);
     _errorMessage = null;
     _successMessage = null;
-    var didLogin = false;
+    var didReset = false;
 
-    final result = await _authRepository.login(
-      LoginRequest(
-        email: email.trim(),
-        password: password,
-      ),
+    final result = await _authRepository.confirmPasswordReset(
+      email: email.trim(),
+      code: code.trim(),
+      newPassword: newPassword,
     );
 
     switch (result) {
-      case Success(:final data):
-        await _sessionManager.saveSession(data);
-        _successMessage = 'Login realizado com sucesso.';
-        didLogin = true;
+      case Success():
+        _successMessage = 'Senha atualizada com sucesso.';
+        didReset = true;
       case Failure(:final message):
         _errorMessage = message;
     }
 
     _setLoading(false);
-    return didLogin;
+    return didReset;
   }
 
   void _setLoading(bool value) {
