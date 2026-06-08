@@ -47,4 +47,3 @@ class UserDto {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 }
-

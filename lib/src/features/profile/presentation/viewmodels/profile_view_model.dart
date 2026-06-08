@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../../../core/result/result.dart';
 import '../../data/models/update_user_request.dart';
@@ -63,6 +63,8 @@ class ProfileViewModel extends ChangeNotifier {
     switch (result) {
       case Success(:final data):
         _me = data;
+        nameController.text = data.name;
+        emailController.text = data.email;
       case Failure(:final message):
         _errorMessage = message;
     }
@@ -75,4 +77,3 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
   }
 }
-

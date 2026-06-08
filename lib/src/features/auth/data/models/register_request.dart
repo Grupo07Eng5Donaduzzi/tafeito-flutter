@@ -18,10 +18,9 @@ class RegisterRequest {
   Map<String, Object?> toJson() {
     return {
       'name': name,
-      'document': document,
+      'identification': document,
       'email': email,
       'password': password,
-      'userType': userType.name,
     };
   }
 }

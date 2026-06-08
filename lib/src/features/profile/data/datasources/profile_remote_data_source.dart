@@ -1,6 +1,7 @@
+import 'package:tafeito_flutter/src/features/profile/data/models/update_user_request.dart';
+
 import '../../../../core/network/api_client.dart';
 import '../../data/models/user_dto.dart';
-import 'package:tafeito_flutter/src/features/profile/data/models/update_user_request.dart';
 
 abstract interface class ProfileRemoteDataSource {
   Future<UserDto> getMe();
@@ -19,8 +20,8 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
 
   @override
   Future<UserDto> getMe() async {
-    final json = await _apiClient.post('/users/me');
-    return UserDto.fromJson(json);
+    final response = await _apiClient.get('/v1/users/me');
+    return UserDto.fromJson(asJsonObject(unwrapJsonData(response)));
   }
 
   @override
@@ -28,9 +29,11 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
     required String id,
     required UpdateUserRequest request,
   }) async {
-    final json = await _apiClient.post('/users/update/$id',
-        body: request.toJson());
-    return UserDto.fromJson(json);
+    await _apiClient.put(
+      '/v1/users/$id',
+      body: request.toJson(),
+    );
+
+    return getMe();
   }
 }
-

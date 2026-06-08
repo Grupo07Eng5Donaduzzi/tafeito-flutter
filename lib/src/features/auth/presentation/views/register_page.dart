@@ -210,6 +210,9 @@ class _RegisterPageState extends State<RegisterPage> {
     if (onlyDigits.length != 11 && onlyDigits.length != 14) {
       return 'CPF ou CNPJ deve ter 11 ou 14 digitos.';
     }
+    if (!_isValidCpfCnpj(onlyDigits)) {
+      return 'Informe um CPF ou CNPJ valido.';
+    }
     return null;
   }
 
@@ -225,13 +228,67 @@ class _RegisterPageState extends State<RegisterPage> {
     return null;
   }
 
+  bool _isValidCpfCnpj(String digits) {
+    return digits.length == 11 ? _isValidCpf(digits) : _isValidCnpj(digits);
+  }
+
+  bool _isValidCpf(String digits) {
+    if (RegExp(r'^(\d)\1+$').hasMatch(digits)) {
+      return false;
+    }
+
+    final firstDigit = _calculateCpfDigit(digits.substring(0, 9));
+    final secondDigit = _calculateCpfDigit(
+      '${digits.substring(0, 9)}$firstDigit',
+    );
+
+    return digits.endsWith('$firstDigit$secondDigit');
+  }
+
+  int _calculateCpfDigit(String digits) {
+    var sum = 0;
+    for (var index = 0; index < digits.length; index++) {
+      sum += int.parse(digits[index]) * (digits.length + 1 - index);
+    }
+
+    final rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  }
+
+  bool _isValidCnpj(String digits) {
+    if (RegExp(r'^(\d)\1+$').hasMatch(digits)) {
+      return false;
+    }
+
+    final firstDigit = _calculateCnpjDigit(
+      digits.substring(0, 12),
+      const [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+    );
+    final secondDigit = _calculateCnpjDigit(
+      '${digits.substring(0, 12)}$firstDigit',
+      const [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+    );
+
+    return digits.endsWith('$firstDigit$secondDigit');
+  }
+
+  int _calculateCnpjDigit(String digits, List<int> weights) {
+    var sum = 0;
+    for (var index = 0; index < digits.length; index++) {
+      sum += int.parse(digits[index]) * weights[index];
+    }
+
+    final rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  }
+
   String? _validatePassword(String? value) {
     final password = value ?? '';
     if (password.isEmpty) {
       return 'Informe uma senha.';
     }
-    if (password.length < 6) {
-      return 'A senha deve ter pelo menos 6 caracteres.';
+    if (password.length < 8) {
+      return 'A senha deve ter pelo menos 8 caracteres.';
     }
     return null;
   }

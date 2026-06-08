@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import '../../../../core/network/api_client.dart';
+import '../models/auth_session_response.dart';
 import '../models/login_request.dart';
 import '../models/register_request.dart';
 import '../models/register_response.dart';
@@ -6,7 +9,7 @@ import '../models/register_response.dart';
 abstract interface class AuthRemoteDataSource {
   Future<RegisterResponse> register(RegisterRequest request);
 
-  Future<RegisterResponse> login(LoginRequest request);
+  Future<AuthSessionResponse> login(LoginRequest request);
 }
 
 class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
@@ -17,22 +20,22 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
 
   @override
   Future<RegisterResponse> register(RegisterRequest request) async {
-    final json = await _apiClient.post(
-      '/auth/register',
+    final response = await _apiClient.post(
+      '/v1/auth/register',
       body: request.toJson(),
     );
 
-    return RegisterResponse.fromJson(json);
+    return RegisterResponse.fromJson(asJsonObject(unwrapJsonData(response)));
   }
 
   @override
-  Future<RegisterResponse> login(LoginRequest request) async {
-    final json = await _apiClient.post(
-      '/auth/login',
+  Future<AuthSessionResponse> login(LoginRequest request) async {
+    final response = await _apiClient.post(
+      '/v1/auth/login',
       body: request.toJson(),
     );
 
-    return RegisterResponse.fromJson(json);
+    return AuthSessionResponse.fromJson(asJsonObject(response));
   }
 }
 
@@ -51,15 +54,49 @@ class StubAuthRemoteDataSource implements AuthRemoteDataSource {
   }
 
   @override
-  Future<RegisterResponse> login(LoginRequest request) async {
+  Future<AuthSessionResponse> login(LoginRequest request) async {
     // TODO: substituir por chamada HTTP quando o endpoint de login existir.
     await Future<void>.delayed(const Duration(milliseconds: 700));
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final expiresAt = DateTime.now().add(const Duration(days: 30));
 
-    return RegisterResponse(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    return AuthSessionResponse(
+      accessToken: _FakeJwtFactory.create(
+        subject: id,
+        email: request.email,
+        expiresAt: expiresAt,
+      ),
+      userId: id,
       name: 'Usuario',
       email: request.email,
       userType: request.userType,
+      expiresAt: expiresAt,
     );
+  }
+}
+
+class _FakeJwtFactory {
+  const _FakeJwtFactory._();
+
+  static String create({
+    required String subject,
+    required String email,
+    required DateTime expiresAt,
+  }) {
+    final header = _encode({
+      'alg': 'none',
+      'typ': 'JWT',
+    });
+    final payload = _encode({
+      'sub': subject,
+      'email': email,
+      'exp': expiresAt.millisecondsSinceEpoch ~/ 1000,
+    });
+
+    return '$header.$payload.stub-signature';
+  }
+
+  static String _encode(Map<String, Object?> json) {
+    return base64Url.encode(utf8.encode(jsonEncode(json))).replaceAll('=', '');
   }
 }

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   const AppTheme._();
 
-  static const primary = Color(0xFF365FEA);
-  static const textPrimary = Color(0xFF171B2A);
+  static const primary = Color(0xFF2E5EE6);
+  static const textPrimary = Color(0xFF000000);
   static const textMuted = Color(0xFF737B8C);
   static const inputFill = Color(0xFFF8F9FB);
   static const inputBorder = Color(0xFFE2E6EF);
 
   static ThemeData get light {
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
@@ -18,7 +19,6 @@ class AppTheme {
         brightness: Brightness.light,
       ),
       scaffoldBackgroundColor: Colors.white,
-      fontFamily: 'Roboto',
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: inputFill,
@@ -59,6 +59,21 @@ class AppTheme {
           textStyle: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+
+    return base.copyWith(
+      textTheme: GoogleFonts.soraTextTheme(base.textTheme),
+      primaryTextTheme: GoogleFonts.soraTextTheme(base.primaryTextTheme),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: base.elevatedButtonTheme.style?.copyWith(
+          textStyle: WidgetStatePropertyAll(
+            GoogleFonts.sora(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
