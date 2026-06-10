@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../../core/result/result.dart';
 import '../../data/datasources/profile_remote_data_source.dart';
 import '../../data/models/update_user_request.dart';
@@ -29,6 +31,26 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return Success(user);
     } on Exception {
       return const Failure('Nao foi possivel salvar suas alteracoes agora.');
+    }
+  }
+
+  @override
+  Future<Result<UserDto>> uploadPhoto({
+    required String id,
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
+  }) async {
+    try {
+      final user = await remoteDataSource.uploadPhoto(
+        id: id,
+        bytes: bytes,
+        filename: filename,
+        mimeType: mimeType,
+      );
+      return Success(user);
+    } on Exception {
+      return const Failure('Nao foi possivel fazer upload da foto agora.');
     }
   }
 }
