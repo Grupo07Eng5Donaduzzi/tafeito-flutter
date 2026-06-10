@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 typedef JsonObject = Map<String, Object?>;
 
@@ -15,6 +17,13 @@ abstract interface class ApiClient {
     String path, {
     JsonObject? body,
     Map<String, String?>? queryParameters,
+  });
+
+  Future<Object?> postMultipart(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
   });
 
   Future<Object?> put(
@@ -58,11 +67,7 @@ class HttpApiClient implements ApiClient {
     String path, {
     Map<String, String?>? queryParameters,
   }) {
-    return _send(
-      'GET',
-      path,
-      queryParameters: queryParameters,
-    );
+    return _send('GET', path, queryParameters: queryParameters);
   }
 
   @override
@@ -71,12 +76,47 @@ class HttpApiClient implements ApiClient {
     JsonObject? body,
     Map<String, String?>? queryParameters,
   }) {
-    return _send(
-      'POST',
-      path,
-      body: body,
-      queryParameters: queryParameters,
+    return _send('POST', path, body: body, queryParameters: queryParameters);
+  }
+
+  @override
+  Future<Object?> postMultipart(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
+  }) async {
+    final uri = _resolve(path, null);
+    final request = http.MultipartRequest('PATCH', uri);
+
+    final headers = await _headers();
+    headers.remove('Content-Type');
+    request.headers.addAll(headers);
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'photo',
+        bytes,
+        filename: filename,
+        contentType: MediaType.parse(mimeType),
+      ),
     );
+
+    final streamedResponse = await _httpClient.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiClientException(
+        statusCode: response.statusCode,
+        message: _readErrorMessage(response),
+      );
+    }
+
+    if (response.statusCode == 204 || response.bodyBytes.isEmpty) {
+      return <String, Object?>{};
+    }
+
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Object?;
   }
 
   @override
@@ -85,12 +125,7 @@ class HttpApiClient implements ApiClient {
     JsonObject? body,
     Map<String, String?>? queryParameters,
   }) {
-    return _send(
-      'PUT',
-      path,
-      body: body,
-      queryParameters: queryParameters,
-    );
+    return _send('PUT', path, body: body, queryParameters: queryParameters);
   }
 
   @override
@@ -99,12 +134,7 @@ class HttpApiClient implements ApiClient {
     JsonObject? body,
     Map<String, String?>? queryParameters,
   }) {
-    return _send(
-      'PATCH',
-      path,
-      body: body,
-      queryParameters: queryParameters,
-    );
+    return _send('PATCH', path, body: body, queryParameters: queryParameters);
   }
 
   @override
@@ -112,11 +142,7 @@ class HttpApiClient implements ApiClient {
     String path, {
     Map<String, String?>? queryParameters,
   }) {
-    return _send(
-      'DELETE',
-      path,
-      queryParameters: queryParameters,
-    );
+    return _send('DELETE', path, queryParameters: queryParameters);
   }
 
   Future<Object?> _send(
@@ -222,6 +248,16 @@ class UnimplementedApiClient implements ApiClient {
     String path, {
     JsonObject? body,
     Map<String, String?>? queryParameters,
+  }) {
+    return _throw(path);
+  }
+
+  @override
+  Future<Object?> postMultipart(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String mimeType,
   }) {
     return _throw(path);
   }
