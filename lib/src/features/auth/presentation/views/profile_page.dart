@@ -34,18 +34,36 @@ class _ProfilePageState extends State<ProfilePage> {
     _viewModel = ProfileViewModel(
       profileRepository: widget.profileRepository,
     )..loadMe();
+    _viewModel.addListener(_onViewModelChanged);
     _paymentsFuture = _fetchMockPaymentsFromApi();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
+    _viewModel.dispose();
+    super.dispose();
+  }
+
+  void _onViewModelChanged() {
+    final error = _viewModel.uploadError;
+    if (error != null && mounted) {
+      setState(() => _profileImageBytes = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      _viewModel.clearUploadError();
+    }
   }
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source);
+    final picked = await picker.pickImage(source: source, imageQuality: 80);
     if (picked == null) return;
 
     final bytes = await picked.readAsBytes();
-    setState(() {
-      _profileImageBytes = bytes;
-    });
+    setState(() => _profileImageBytes = bytes);
+    await _viewModel.uploadPhoto(bytes, picked.name);
   }
 
   void _showEditPhotoModal(BuildContext context) {
@@ -74,6 +92,20 @@ class _ProfilePageState extends State<ProfilePage> {
                   await _pickImage(ImageSource.gallery);
                 },
               ),
+              ListTile(
+                leading: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppTheme.textPrimary,
+                ),
+                title: const Text(
+                  'Tirar foto',
+                  style: TextStyle(color: AppTheme.textPrimary),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickImage(ImageSource.camera);
+                },
+              ),
             ],
           ),
         );
@@ -81,10 +113,43 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  @override
-  void dispose() {
-    _viewModel.dispose();
-    super.dispose();
+  Widget _buildAvatar() {
+    if (_viewModel.isUploadingPhoto) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          CircleAvatar(
+            radius: 48,
+            backgroundImage: _profileImageBytes != null
+                ? MemoryImage(_profileImageBytes!) as ImageProvider
+                : null,
+            backgroundColor: const Color(0xFFE5E7EB),
+          ),
+          const CircularProgressIndicator(color: AppTheme.primary),
+        ],
+      );
+    }
+
+    if (_profileImageBytes != null) {
+      return CircleAvatar(
+        radius: 48,
+        backgroundImage: MemoryImage(_profileImageBytes!),
+      );
+    }
+
+    final photoUrl = _viewModel.me?.photoUrl;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 48,
+        backgroundImage: NetworkImage(photoUrl),
+      );
+    }
+
+    return const CircleAvatar(
+      radius: 48,
+      backgroundColor: Color(0xFFE5E7EB),
+      child: Icon(Icons.person, size: 48, color: Color(0xFF9CA3AF)),
+    );
   }
 
   @override
@@ -108,14 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   alignment: Alignment.centerLeft,
                   child: Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 48,
-                        backgroundImage: _profileImageBytes == null
-                            ? const NetworkImage(
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                              )
-                            : MemoryImage(_profileImageBytes!),
-                      ),
+                      _buildAvatar(),
                       Positioned(
                         bottom: 0,
                         right: 0,
@@ -133,9 +191,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               size: 16,
                               color: Colors.white,
                             ),
-                            onPressed: () {
-                              _showEditPhotoModal(context);
-                            },
+                            onPressed: _viewModel.isUploadingPhoto
+                                ? null
+                                : () => _showEditPhotoModal(context),
                           ),
                         ),
                       ),
