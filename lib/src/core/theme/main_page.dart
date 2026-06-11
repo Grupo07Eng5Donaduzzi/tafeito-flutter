@@ -7,6 +7,7 @@ import 'package:tafeito_flutter/src/features/auth/presentation/views/profile_pag
 import 'package:tafeito_flutter/src/features/auth/presentation/views/services_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/widgets/auth_logo.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
+import 'package:tafeito_flutter/src/features/chat/domain/repositories/chat_repository.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
 
 class MainPage extends StatefulWidget {
@@ -14,6 +15,7 @@ class MainPage extends StatefulWidget {
     required this.sessionManager,
     required this.profileRepository,
     required this.servicesRepository,
+    required this.chatRepositoryFactory,
     super.key,
   });
 
@@ -22,6 +24,7 @@ class MainPage extends StatefulWidget {
   final SessionManager sessionManager;
   final ProfileRepository profileRepository;
   final ServicesRepository servicesRepository;
+  final ChatRepository Function() chatRepositoryFactory;
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -34,7 +37,11 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     final pages = [
       const HomePage(),
-      ServicesPage(servicesRepository: widget.servicesRepository),
+      ServicesPage(
+        servicesRepository: widget.servicesRepository,
+        sessionManager: widget.sessionManager,
+        chatRepositoryFactory: widget.chatRepositoryFactory,
+      ),
       const ChatPage(),
       ProfilePage(
         sessionManager: widget.sessionManager,

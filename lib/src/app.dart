@@ -23,6 +23,10 @@ import 'features/auth/presentation/views/register_page.dart';
 import 'features/auth/presentation/widgets/auth_logo.dart';
 import 'features/profile/data/datasources/profile_remote_data_source.dart';
 import 'features/profile/data/repositories/profile_repository_impl.dart';
+import 'features/chat/data/datasources/chat_remote_data_source.dart';
+import 'features/chat/data/datasources/chat_socket_data_source.dart';
+import 'features/chat/data/repositories/chat_repository_impl.dart';
+import 'features/chat/domain/repositories/chat_repository.dart';
 import 'features/services/data/datasources/services_remote_data_source.dart';
 import 'features/services/data/repositories/services_repository_impl.dart';
 
@@ -45,6 +49,18 @@ class TaFeitoApp extends StatefulWidget {
 }
 
 class _TaFeitoAppState extends State<TaFeitoApp> {
+  static const _wsBaseUrl = String.fromEnvironment(
+    'TAFEITO_WS_BASE_URL',
+    defaultValue: 'https://tafeito.rietto.com',
+  );
+
+  ChatRepository _createChatRepository() {
+    return ChatRepositoryImpl(
+      remoteDataSource: ApiChatRemoteDataSource(apiClient: _apiClient),
+      socketDataSource: SocketIoChatDataSource(wsBaseUrl: _wsBaseUrl),
+    );
+  }
+
   late final ApiClient _apiClient;
   late final SessionManager _sessionManager;
   late final AuthRepositoryImpl _authRepository;
@@ -103,6 +119,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                       sessionManager: _sessionManager,
                       profileRepository: _profileRepository,
                       servicesRepository: _servicesRepository,
+                      chatRepositoryFactory: _createChatRepository,
                     ),
                   );
                 }
@@ -150,6 +167,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                 sessionManager: _sessionManager,
                 profileRepository: _profileRepository,
                 servicesRepository: _servicesRepository,
+                chatRepositoryFactory: _createChatRepository,
               ),
             ),
       },

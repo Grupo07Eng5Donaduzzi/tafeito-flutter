@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:tafeito_flutter/src/core/session/session_manager.dart';
 import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
+import 'package:tafeito_flutter/src/features/chat/domain/repositories/chat_repository.dart';
+import 'package:tafeito_flutter/src/features/chat/presentation/views/chat_thread_page.dart';
 import 'package:tafeito_flutter/src/features/services/data/models/service_dto.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
 import 'package:tafeito_flutter/src/features/services/presentation/viewmodels/services_view_model.dart';
@@ -7,10 +10,14 @@ import 'package:tafeito_flutter/src/features/services/presentation/viewmodels/se
 class ServicesPage extends StatefulWidget {
   const ServicesPage({
     required this.servicesRepository,
+    required this.sessionManager,
+    required this.chatRepositoryFactory,
     super.key,
   });
 
   final ServicesRepository servicesRepository;
+  final SessionManager sessionManager;
+  final ChatRepository Function() chatRepositoryFactory;
 
   @override
   State<ServicesPage> createState() => _ServicesPageState();
@@ -68,7 +75,11 @@ class _ServicesPageState extends State<ServicesPage> {
             itemCount: _viewModel.services.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              return _ServiceTile(service: _viewModel.services[index]);
+              return _ServiceTile(
+                service: _viewModel.services[index],
+                sessionManager: widget.sessionManager,
+                chatRepositoryFactory: widget.chatRepositoryFactory,
+              );
             },
           ),
         );
@@ -78,9 +89,34 @@ class _ServicesPageState extends State<ServicesPage> {
 }
 
 class _ServiceTile extends StatelessWidget {
-  const _ServiceTile({required this.service});
+  const _ServiceTile({
+    required this.service,
+    required this.sessionManager,
+    required this.chatRepositoryFactory,
+  });
 
   final ServiceDto service;
+  final SessionManager sessionManager;
+  final ChatRepository Function() chatRepositoryFactory;
+
+  void _openChat(BuildContext context) {
+    final session = sessionManager.session;
+    if (session == null) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatThreadPage(
+          repository: chatRepositoryFactory(),
+          serviceId: service.id,
+          recipientId: service.providerId,
+          title: service.name.isEmpty ? 'Conversa' : service.name,
+          currentUserId: session.user.id,
+          token: session.accessToken,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +176,25 @@ class _ServiceTile extends StatelessWidget {
                   _MetaChip(label: service.category),
                 if (duration != null) _MetaChip(label: duration),
               ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _openChat(context),
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text(
+                  'Conversar',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
           ],
         ),

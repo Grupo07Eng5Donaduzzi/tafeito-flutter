@@ -5,6 +5,7 @@ class ServiceDto {
     required this.description,
     required this.category,
     required this.price,
+    required this.providerId,
     this.duration,
   });
 
@@ -13,6 +14,7 @@ class ServiceDto {
   final String description;
   final String category;
   final String price;
+  final String providerId;
   final String? duration;
 
   factory ServiceDto.fromJson(Map<String, Object?> json) {
@@ -22,6 +24,7 @@ class ServiceDto {
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
       price: json['price']?.toString() ?? '',
+      providerId: (json['userId'] ?? json['user_id'])?.toString() ?? '',
       duration: _emptyToNull(json['duration']),
     );
   }
