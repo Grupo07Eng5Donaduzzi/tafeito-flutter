@@ -36,6 +36,7 @@ void main() {
       expect(message.senderId, 'u3');
       expect(message.recipientId, 'u4');
       expect(message.status, 'sent');
+      expect(message.createdAt, DateTime.fromMillisecondsSinceEpoch(0));
     });
   });
 }
