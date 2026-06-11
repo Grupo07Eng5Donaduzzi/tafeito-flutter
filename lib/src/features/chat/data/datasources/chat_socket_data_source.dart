@@ -33,6 +33,8 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
 
   @override
   void connect(String token) {
+    _socket?.dispose();
+    _socket = null;
     final socket = io.io(
       '$_wsBaseUrl/chat',
       io.OptionBuilder()
@@ -50,9 +52,10 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
     });
 
     socket.on('new-message', (data) {
-      final message = data is Map ? data['message'] : null;
-      if (message is Map) {
-        _messageController.add(ChatMessageDto.fromJson(asJsonObject(message)));
+      if (data is! Map) return;
+      final raw = data['message'] is Map ? data['message'] : data;
+      if (raw is Map && raw['id'] != null) {
+        _messageController.add(ChatMessageDto.fromJson(asJsonObject(raw)));
       }
     });
 
@@ -93,6 +96,7 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
   void dispose() {
     _socket?.dispose();
     _socket = null;
+    _serviceId = null;
     _messageController.close();
     _errorController.close();
   }
