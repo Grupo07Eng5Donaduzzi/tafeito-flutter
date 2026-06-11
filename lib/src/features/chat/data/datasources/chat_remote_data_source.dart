@@ -45,6 +45,9 @@ class ApiChatRemoteDataSource implements ChatRemoteDataSource {
     if (unwrapped is List) {
       return asJsonList(unwrapped);
     }
+    // Defensive: unwrapJsonData already extracts 'data'. Guard against a
+    // future/nested envelope shape; returning an empty list (rather than
+    // throwing) keeps an unexpected payload from breaking the thread.
     if (unwrapped is Map) {
       final data = unwrapped['data'];
       if (data is List) {

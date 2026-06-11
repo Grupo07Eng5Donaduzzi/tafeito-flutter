@@ -69,6 +69,7 @@ void main() {
     final messages = await dataSource.getServiceMessages('s1');
 
     expect(api.lastPath, '/v1/chat/services/s1/messages');
+    expect(api.lastQuery, {'page': '1', 'pageSize': '50'});
     expect(messages, hasLength(2));
     expect(messages.first.content, 'primeiro');
     expect(messages.last.content, 'segundo');
