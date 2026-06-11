@@ -19,7 +19,7 @@ abstract interface class ApiClient {
     Map<String, String?>? queryParameters,
   });
 
-  Future<Object?> postMultipart(
+  Future<Object?> patchMultipart(
     String path, {
     required Uint8List bytes,
     required String filename,
@@ -80,7 +80,7 @@ class HttpApiClient implements ApiClient {
   }
 
   @override
-  Future<Object?> postMultipart(
+  Future<Object?> patchMultipart(
     String path, {
     required Uint8List bytes,
     required String filename,
@@ -103,20 +103,7 @@ class HttpApiClient implements ApiClient {
     );
 
     final streamedResponse = await _httpClient.send(request);
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiClientException(
-        statusCode: response.statusCode,
-        message: _readErrorMessage(response),
-      );
-    }
-
-    if (response.statusCode == 204 || response.bodyBytes.isEmpty) {
-      return <String, Object?>{};
-    }
-
-    return jsonDecode(utf8.decode(response.bodyBytes)) as Object?;
+    return _parseResponse(await http.Response.fromStream(streamedResponse));
   }
 
   @override
@@ -159,8 +146,10 @@ class HttpApiClient implements ApiClient {
     }
 
     final streamedResponse = await _httpClient.send(request);
-    final response = await http.Response.fromStream(streamedResponse);
+    return _parseResponse(await http.Response.fromStream(streamedResponse));
+  }
 
+  Object? _parseResponse(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiClientException(
         statusCode: response.statusCode,
@@ -253,7 +242,7 @@ class UnimplementedApiClient implements ApiClient {
   }
 
   @override
-  Future<Object?> postMultipart(
+  Future<Object?> patchMultipart(
     String path, {
     required Uint8List bytes,
     required String filename,

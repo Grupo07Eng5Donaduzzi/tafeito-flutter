@@ -53,7 +53,7 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
     required String filename,
     required String mimeType,
   }) async {
-    final response = await _apiClient.postMultipart(
+    final response = await _apiClient.patchMultipart(
       '/v1/users/$id/photo',
       bytes: bytes,
       filename: filename,

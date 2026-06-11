@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:tafeito_flutter/src/core/session/session_manager.dart';
 import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
@@ -56,14 +56,20 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, imageQuality: 80);
-    if (picked == null) return;
+  Future<void> _pickImage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    if (!mounted) return;
+    if (result == null || result.files.isEmpty) return;
 
-    final bytes = await picked.readAsBytes();
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+
     setState(() => _profileImageBytes = bytes);
-    await _viewModel.uploadPhoto(bytes, picked.name);
+    await _viewModel.uploadPhoto(bytes, file.name);
   }
 
   void _showEditPhotoModal(BuildContext context) {
@@ -89,7 +95,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 onTap: () async {
                   Navigator.pop(context);
-                  await _pickImage(ImageSource.gallery);
+                  await _pickImage();
                 },
               ),
               ListTile(
@@ -103,7 +109,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 onTap: () async {
                   Navigator.pop(context);
-                  await _pickImage(ImageSource.camera);
+                  await _pickImage();
                 },
               ),
             ],
