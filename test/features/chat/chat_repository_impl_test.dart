@@ -93,6 +93,17 @@ void main() {
     socket.messageController.add(_msg('m9'));
   });
 
+  test('errors stream proxies the socket error stream', () async {
+    final socket = _FakeSocket();
+    final repo = ChatRepositoryImpl(
+      remoteDataSource: _FakeRemote(<ChatMessage>[]),
+      socketDataSource: socket,
+    );
+
+    expectLater(repo.errors, emits('socket error'));
+    socket.errorController.add('socket error');
+  });
+
   test('dispose disposes the socket', () {
     final socket = _FakeSocket();
     final repo = ChatRepositoryImpl(
