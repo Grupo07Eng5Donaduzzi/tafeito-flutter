@@ -107,4 +107,27 @@ void main() {
 
     expect(find.text('mensagem ao vivo'), findsOneWidget);
   });
+
+  testWidgets('shows a snackbar when a socket error arrives with messages',
+      (tester) async {
+    final repo = _FakeRepo();
+    await tester.pumpWidget(MaterialApp(
+      home: ChatThreadPage(
+        repository: repo,
+        serviceId: 's1',
+        recipientId: 'other',
+        title: 'Plantio de flores',
+        currentUserId: 'me',
+        token: 'token',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    repo.errorController.add('Falha ao enviar');
+    await tester.pump(); // let notifyListeners run
+    await tester.pump(); // post-frame callback + snackbar insert
+    await tester.pump(const Duration(milliseconds: 500)); // snackbar animation
+
+    expect(find.text('Falha ao enviar'), findsOneWidget);
+  });
 }

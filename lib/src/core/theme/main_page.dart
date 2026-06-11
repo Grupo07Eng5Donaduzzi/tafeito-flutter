@@ -6,8 +6,8 @@ import 'package:tafeito_flutter/src/features/auth/presentation/views/home_page.d
 import 'package:tafeito_flutter/src/features/auth/presentation/views/profile_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/services_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/widgets/auth_logo.dart';
-import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
 import 'package:tafeito_flutter/src/features/chat/domain/repositories/chat_repository.dart';
+import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
 
 class MainPage extends StatefulWidget {

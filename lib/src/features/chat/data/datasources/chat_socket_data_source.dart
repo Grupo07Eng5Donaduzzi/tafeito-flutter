@@ -55,7 +55,11 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
       if (data is! Map) return;
       final raw = data['message'] is Map ? data['message'] : data;
       if (raw is Map && raw['id'] != null) {
-        _messageController.add(ChatMessageDto.fromJson(asJsonObject(raw)));
+        try {
+          _messageController.add(ChatMessageDto.fromJson(asJsonObject(raw)));
+        } catch (_) {
+          // Ignore malformed message payloads rather than crashing the socket.
+        }
       }
     });
 
