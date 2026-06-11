@@ -20,8 +20,8 @@ class ChatThreadViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
-  late String _serviceId;
-  late String _recipientId;
+  String _serviceId = '';
+  String _recipientId = '';
 
   StreamSubscription<ChatMessage>? _messageSub;
   StreamSubscription<String>? _errorSub;
@@ -33,6 +33,8 @@ class ChatThreadViewModel extends ChangeNotifier {
   bool isMine(ChatMessage message) => message.senderId == _currentUserId;
 
   Future<void> init(String serviceId, String recipientId, String token) async {
+    await _messageSub?.cancel();
+    await _errorSub?.cancel();
     _serviceId = serviceId;
     _recipientId = recipientId;
     _isLoading = true;
@@ -58,7 +60,7 @@ class ChatThreadViewModel extends ChangeNotifier {
 
   void send(String content) {
     final trimmed = content.trim();
-    if (trimmed.isEmpty) {
+    if (trimmed.isEmpty || _serviceId.isEmpty) {
       return;
     }
     _repository.sendMessage(

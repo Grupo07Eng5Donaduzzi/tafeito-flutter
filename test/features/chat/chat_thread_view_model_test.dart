@@ -127,4 +127,15 @@ void main() {
     expect(vm.isMine(_msg('m', sender: 'u1')), isTrue);
     expect(vm.isMine(_msg('m', sender: 'u2')), isFalse);
   });
+
+  test('after dispose, incoming messages are ignored', () async {
+    final repo = _FakeRepo();
+    final vm = ChatThreadViewModel(repository: repo, currentUserId: 'u1');
+    await vm.init('s1', 'u2', 'token');
+
+    vm.dispose();
+    // repo.dispose() closed the controllers; emitting now must not append.
+    expect(repo.disposed, isTrue);
+    expect(vm.messages, isEmpty);
+  });
 }
