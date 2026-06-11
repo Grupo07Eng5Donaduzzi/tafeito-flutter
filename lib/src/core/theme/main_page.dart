@@ -42,7 +42,11 @@ class _MainPageState extends State<MainPage> {
         sessionManager: widget.sessionManager,
         chatRepositoryFactory: widget.chatRepositoryFactory,
       ),
-      const ChatPage(),
+      ChatPage(
+        sessionManager: widget.sessionManager,
+        servicesRepository: widget.servicesRepository,
+        chatRepositoryFactory: widget.chatRepositoryFactory,
+      ),
       ProfilePage(
         sessionManager: widget.sessionManager,
         profileRepository: widget.profileRepository,

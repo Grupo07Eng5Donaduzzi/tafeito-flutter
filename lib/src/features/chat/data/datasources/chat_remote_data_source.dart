@@ -8,6 +8,11 @@ abstract interface class ChatRemoteDataSource {
     int page,
     int pageSize,
   });
+
+  Future<List<ChatMessage>> getUserMessages(
+    String userId, {
+    int limit,
+  });
 }
 
 class ApiChatRemoteDataSource implements ChatRemoteDataSource {
@@ -27,6 +32,28 @@ class ApiChatRemoteDataSource implements ChatRemoteDataSource {
       queryParameters: {
         'page': '$page',
         'pageSize': '$pageSize',
+      },
+    );
+
+    final list = _extractList(response);
+    final messages = list
+        .whereType<Map>()
+        .map((json) => ChatMessageDto.fromJson(asJsonObject(json)))
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    return messages;
+  }
+
+  @override
+  Future<List<ChatMessage>> getUserMessages(
+    String userId, {
+    int limit = 50,
+  }) async {
+    final response = await _apiClient.get(
+      '/v1/chat/users/$userId/messages',
+      queryParameters: {
+        'limit': '$limit',
       },
     );
 

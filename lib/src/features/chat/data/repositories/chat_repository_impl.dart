@@ -25,6 +25,16 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Result<List<ChatMessage>>> loadUserMessages(String userId) async {
+    try {
+      final messages = await _remoteDataSource.getUserMessages(userId);
+      return Success(messages);
+    } on Exception {
+      return const Failure('Nao foi possivel carregar suas conversas agora.');
+    }
+  }
+
+  @override
   void connect(String token) => _socketDataSource.connect(token);
 
   @override

@@ -28,6 +28,10 @@ class _FakeRepo implements ChatRepository {
   }
 
   @override
+  Future<Result<List<ChatMessage>>> loadUserMessages(String userId) async =>
+      const Success(<ChatMessage>[]);
+
+  @override
   void connect(String token) => connected = true;
   @override
   void joinService(String serviceId) => joined = true;

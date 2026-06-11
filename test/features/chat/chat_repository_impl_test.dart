@@ -18,6 +18,14 @@ class _FakeRemote implements ChatRemoteDataSource {
     if (value is Exception) throw value;
     return value as List<ChatMessage>;
   }
+
+  @override
+  Future<List<ChatMessage>> getUserMessages(String userId,
+      {int limit = 50}) async {
+    final value = result;
+    if (value is Exception) throw value;
+    return value as List<ChatMessage>;
+  }
 }
 
 class _FakeSocket implements ChatSocketDataSource {

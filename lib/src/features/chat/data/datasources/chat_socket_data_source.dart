@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../../../../core/network/api_client.dart';
@@ -35,8 +36,10 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
   void connect(String token) {
     _socket?.dispose();
     _socket = null;
+    final url = '$_wsBaseUrl/chat';
+    debugPrint('[chat-socket] connecting to $url');
     final socket = io.io(
-      '$_wsBaseUrl/chat',
+      url,
       io.OptionBuilder()
           .setTransports(['websocket'])
           .setQuery({'token': token})
@@ -45,10 +48,23 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
     );
 
     socket.onConnect((_) {
+      debugPrint('[chat-socket] connected (id: ${socket.id})');
       final serviceId = _serviceId;
       if (serviceId != null) {
         socket.emit('join-service', {'serviceId': serviceId});
       }
+    });
+
+    socket.onConnectError((data) {
+      debugPrint('[chat-socket] connect_error: $data');
+    });
+
+    socket.onError((data) {
+      debugPrint('[chat-socket] error: $data');
+    });
+
+    socket.onDisconnect((reason) {
+      debugPrint('[chat-socket] disconnected: $reason');
     });
 
     socket.on('new-message', (data) {
@@ -64,6 +80,14 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
     });
 
     socket.on('error', (data) {
+      final text = data is Map ? data['message']?.toString() : data?.toString();
+      _errorController.add(text ?? 'Erro no chat.');
+    });
+
+    // NestJS emits WS validation/handler failures on the 'exception' event.
+    // Without this they fail silently (e.g. a rejected send-message payload).
+    socket.on('exception', (data) {
+      debugPrint('[chat-socket] exception: $data');
       final text = data is Map ? data['message']?.toString() : data?.toString();
       _errorController.add(text ?? 'Erro no chat.');
     });
