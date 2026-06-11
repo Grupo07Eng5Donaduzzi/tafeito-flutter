@@ -54,12 +54,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
   void _onChanged() {
     if (!mounted) return;
+    setState(() {});
+    // Scroll after the rebuild lays out the new message. hasClients is false
+    // while the loading/error/empty states are shown, so this safely no-ops then.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
-    setState(() {});
   }
 
   void _send() {

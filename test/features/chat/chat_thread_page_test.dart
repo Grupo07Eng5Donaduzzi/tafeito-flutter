@@ -77,4 +77,34 @@ void main() {
     expect(repo.sent, ['oi prestador']);
     expect(find.text('oi prestador'), findsNothing); // só aparece via echo
   });
+
+  testWidgets('renders a message arriving over the stream', (tester) async {
+    final repo = _FakeRepo();
+    await tester.pumpWidget(MaterialApp(
+      home: ChatThreadPage(
+        repository: repo,
+        serviceId: 's1',
+        recipientId: 'other',
+        title: 'Plantio de flores',
+        currentUserId: 'me',
+        token: 'token',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    repo.messageController.add(
+      ChatMessage(
+        id: 'm2',
+        serviceId: 's1',
+        senderId: 'me',
+        recipientId: 'other',
+        content: 'mensagem ao vivo',
+        status: 'sent',
+        createdAt: DateTime.utc(2026, 6, 11, 20, 5),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('mensagem ao vivo'), findsOneWidget);
+  });
 }
