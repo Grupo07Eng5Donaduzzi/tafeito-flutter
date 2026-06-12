@@ -50,6 +50,43 @@ class ServiceDto {
     return (id.hashCode.abs() % 240) + 10;
   }
 
+  String get providerName {
+    if (name.toLowerCase().contains('plantio')) {
+      return 'Ana Lima';
+    }
+    final names = ['Ana Lima', 'Carlos Souza', 'Bruno Alves', 'Mariana Costa', 'Daniela Reis', 'Eduardo Lima'];
+    final index = id.hashCode.abs() % names.length;
+    return names[index];
+  }
+
+  String get providerAvatarUrl {
+    if (name.toLowerCase().contains('plantio')) {
+      return 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150';
+    }
+    final avatars = [
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=150',
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=150',
+      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=150',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150',
+      'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?q=80&w=150',
+    ];
+    final index = id.hashCode.abs() % avatars.length;
+    return avatars[index];
+  }
+
+  String get displayReviewText {
+    if (name.toLowerCase().contains('plantio')) {
+      return 'Excelente profissional! Muito caprichoso e dedicado no plantio das flores e plantas. O serviço ficou lindo, organizado e deu outra vida ao jardim. Recomendo para quem procura alguém de confiança e que realmente gosta do que faz.';
+    }
+    final reviews = [
+      'Excelente profissional! Muito rápido e caprichoso. O serviço ficou impecável, organizado e super limpo. Recomendo com certeza!',
+      'Muito atencioso e prestativo. Realizou todo o trabalho dentro do prazo combinado com muita qualidade. Nota 10!',
+      'Serviço muito bem feito e com preço justo. Comunicação fácil e transparente. Recomendo a todos!',
+    ];
+    return reviews[id.hashCode.abs() % reviews.length];
+  }
+
   factory ServiceDto.fromJson(Map<String, Object?> json) {
     return ServiceDto(
       id: json['id']?.toString() ?? '',
