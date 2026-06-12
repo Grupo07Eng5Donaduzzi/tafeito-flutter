@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:tafeito_flutter/src/core/session/session_manager.dart';
 import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
+import 'package:tafeito_flutter/src/core/result/result.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/chat_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/home_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/profile_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/services_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/widgets/auth_logo.dart';
+import 'package:tafeito_flutter/src/features/profile/data/models/update_user_request.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
+import 'package:tafeito_flutter/src/features/quotes/domain/repositories/quotes_repository.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
 
 class MainPage extends StatefulWidget {
@@ -14,6 +17,7 @@ class MainPage extends StatefulWidget {
     required this.sessionManager,
     required this.profileRepository,
     required this.servicesRepository,
+    required this.quotesRepository,
     super.key,
   });
 
@@ -22,6 +26,7 @@ class MainPage extends StatefulWidget {
   final SessionManager sessionManager;
   final ProfileRepository profileRepository;
   final ServicesRepository servicesRepository;
+  final QuotesRepository quotesRepository;
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -29,16 +34,60 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
+  bool _isProvider = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProviderStatus();
+  }
+
+  Future<void> _loadProviderStatus() async {
+    final result = await widget.profileRepository.getMe();
+    if (result is Success && mounted) {
+      final data = (result as Success).data;
+      final pixKey = data.pixKey as String?;
+      final isProvider = pixKey != null && pixKey.isNotEmpty;
+      if (isProvider != _isProvider) {
+        setState(() => _isProvider = isProvider);
+      }
+    }
+  }
+
+  Future<void> _onBecomeProvider(String pixKey) async {
+    final userId = widget.sessionManager.session?.user.id ?? '';
+    if (userId.isEmpty || pixKey.isEmpty) return;
+
+    final result = await widget.profileRepository.update(
+      id: userId,
+      request: UpdateUserRequest(pixKey: pixKey),
+    );
+    if (result is Success && mounted) {
+      setState(() => _isProvider = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const HomePage(),
-      ServicesPage(servicesRepository: widget.servicesRepository),
+      HomePage(
+        sessionManager: widget.sessionManager,
+        quotesRepository: widget.quotesRepository,
+        servicesRepository: widget.servicesRepository,
+        isProvider: _isProvider,
+        onBecomeProvider: _onBecomeProvider,
+      ),
+      ServicesPage(
+        servicesRepository: widget.servicesRepository,
+        sessionManager: widget.sessionManager,
+        quotesRepository: widget.quotesRepository,
+        isProvider: _isProvider,
+      ),
       const ChatPage(),
       ProfilePage(
         sessionManager: widget.sessionManager,
         profileRepository: widget.profileRepository,
+        onPixKeySaved: _loadProviderStatus,
       ),
     ];
 

@@ -13,11 +13,13 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({
     required this.sessionManager,
     required this.profileRepository,
+    this.onPixKeySaved,
     super.key,
   });
 
   final SessionManager sessionManager;
   final ProfileRepository profileRepository;
+  final VoidCallback? onPixKeySaved;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -79,6 +81,15 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       },
     );
+  }
+
+  Future<void> _save() async {
+    final hadPixKey = _viewModel.me?.pixKey?.isNotEmpty ?? false;
+    await _viewModel.save();
+    if (_viewModel.errorMessage == null && !hadPixKey) {
+      final nowHasPixKey = _viewModel.me?.pixKey?.isNotEmpty ?? false;
+      if (nowHasPixKey) widget.onPixKeySaved?.call();
+    }
   }
 
   @override
@@ -181,7 +192,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     vertical: 12,
                   ),
                 ),
-                onPressed: _viewModel.isLoading ? null : _viewModel.save,
+                onPressed: _viewModel.isLoading ? null : _save,
                 child: _viewModel.isLoading
                     ? const SizedBox.square(
                         dimension: 18,
@@ -194,6 +205,25 @@ class _ProfilePageState extends State<ProfilePage> {
                         'Salvar alteracoes',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Divider(color: Color(0xFFF3F4F6)),
+              ),
+              const Text(
+                'Dados de Prestador',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Configure sua chave Pix para ofertar servicos na plataforma.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              ),
+              const SizedBox(height: 16),
+              _buildInputField(
+                label: 'Chave Pix',
+                hintText: 'CPF, email, celular ou chave aleatoria',
+                controller: _viewModel.pixKeyController,
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
