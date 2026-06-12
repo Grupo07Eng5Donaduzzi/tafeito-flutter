@@ -11,7 +11,9 @@ abstract interface class ChatRepository {
     required String recipientId,
     required String content,
   });
+  void setTyping(bool isTyping);
   Stream<ChatMessage> get messages;
+  Stream<bool> get typing;
   Stream<String> get errors;
   void dispose();
 }

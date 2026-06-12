@@ -54,7 +54,13 @@ class ChatRepositoryImpl implements ChatRepository {
       );
 
   @override
+  void setTyping(bool isTyping) => _socketDataSource.setTyping(isTyping);
+
+  @override
   Stream<ChatMessage> get messages => _socketDataSource.onNewMessage;
+
+  @override
+  Stream<bool> get typing => _socketDataSource.onTyping;
 
   @override
   Stream<String> get errors => _socketDataSource.onError;

@@ -19,21 +19,29 @@ class ChatThreadViewModel extends ChangeNotifier {
   List<ChatMessage> _messages = const [];
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isCounterpartTyping = false;
 
   String _serviceId = '';
   String _recipientId = '';
 
+  bool _sentTyping = false;
+  Timer? _typingStopTimer;
+  Timer? _counterpartTypingTimer;
+
   StreamSubscription<ChatMessage>? _messageSub;
+  StreamSubscription<bool>? _typingSub;
   StreamSubscription<String>? _errorSub;
 
   List<ChatMessage> get messages => _messages;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get isCounterpartTyping => _isCounterpartTyping;
 
   bool isMine(ChatMessage message) => message.senderId == _currentUserId;
 
   Future<void> init(String serviceId, String recipientId, String token) async {
     await _messageSub?.cancel();
+    await _typingSub?.cancel();
     await _errorSub?.cancel();
     _serviceId = serviceId;
     _recipientId = recipientId;
@@ -52,6 +60,7 @@ class ChatThreadViewModel extends ChangeNotifier {
     _repository.connect(token);
     _repository.joinService(serviceId);
     _messageSub = _repository.messages.listen(_onMessage);
+    _typingSub = _repository.typing.listen(_onCounterpartTyping);
     _errorSub = _repository.errors.listen(_onError);
 
     _isLoading = false;
@@ -63,11 +72,38 @@ class ChatThreadViewModel extends ChangeNotifier {
     if (trimmed.isEmpty || _serviceId.isEmpty) {
       return;
     }
+    _stopTyping();
     _repository.sendMessage(
       serviceId: _serviceId,
       recipientId: _recipientId,
       content: trimmed,
     );
+  }
+
+  /// Call on every keystroke. Emits a `typing` start once, then schedules a
+  /// `typing` stop after a short idle window so the peer clears the indicator.
+  void onInputChanged(String text) {
+    if (_serviceId.isEmpty) {
+      return;
+    }
+    if (text.trim().isEmpty) {
+      _stopTyping();
+      return;
+    }
+    if (!_sentTyping) {
+      _sentTyping = true;
+      _repository.setTyping(true);
+    }
+    _typingStopTimer?.cancel();
+    _typingStopTimer = Timer(const Duration(seconds: 2), _stopTyping);
+  }
+
+  void _stopTyping() {
+    _typingStopTimer?.cancel();
+    if (_sentTyping) {
+      _sentTyping = false;
+      _repository.setTyping(false);
+    }
   }
 
   void clearError() {
@@ -83,6 +119,23 @@ class ChatThreadViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _onCounterpartTyping(bool isTyping) {
+    _counterpartTypingTimer?.cancel();
+    if (_isCounterpartTyping != isTyping) {
+      _isCounterpartTyping = isTyping;
+      notifyListeners();
+    }
+    // Safety net: clear the indicator if a `stop` event is ever lost.
+    if (isTyping) {
+      _counterpartTypingTimer = Timer(const Duration(seconds: 5), () {
+        if (_isCounterpartTyping) {
+          _isCounterpartTyping = false;
+          notifyListeners();
+        }
+      });
+    }
+  }
+
   void _onError(String message) {
     _errorMessage = message;
     notifyListeners();
@@ -90,7 +143,10 @@ class ChatThreadViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _typingStopTimer?.cancel();
+    _counterpartTypingTimer?.cancel();
     _messageSub?.cancel();
+    _typingSub?.cancel();
     _errorSub?.cancel();
     _repository.dispose();
     super.dispose();

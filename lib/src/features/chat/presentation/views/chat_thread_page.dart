@@ -95,6 +95,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       body: Column(
         children: [
           Expanded(child: _buildBody()),
+          if (_viewModel.isCounterpartTyping) _buildTypingIndicator(),
           _buildInputBar(),
         ],
       ),
@@ -158,6 +159,23 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     );
   }
 
+  Widget _buildTypingIndicator() {
+    return const Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 6),
+        child: Text(
+          'Digitando...',
+          style: TextStyle(
+            color: AppTheme.textMuted,
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInputBar() {
     return SafeArea(
       child: Padding(
@@ -168,6 +186,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
               child: TextField(
                 controller: _inputController,
                 textInputAction: TextInputAction.send,
+                onChanged: _viewModel.onInputChanged,
                 onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
                   hintText: 'Mensagem...',

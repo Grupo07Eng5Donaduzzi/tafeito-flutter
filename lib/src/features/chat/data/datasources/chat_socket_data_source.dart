@@ -15,7 +15,9 @@ abstract interface class ChatSocketDataSource {
     required String recipientId,
     required String content,
   });
+  void setTyping(bool isTyping);
   Stream<ChatMessage> get onNewMessage;
+  Stream<bool> get onTyping;
   Stream<String> get onError;
   void dispose();
 }
@@ -29,6 +31,8 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
 
   final StreamController<ChatMessage> _messageController =
       StreamController<ChatMessage>.broadcast();
+  final StreamController<bool> _typingController =
+      StreamController<bool>.broadcast();
   final StreamController<String> _errorController =
       StreamController<String>.broadcast();
 
@@ -79,6 +83,13 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
       }
     });
 
+    // Backend emits 'user-typing' only to other peers in the room, so any
+    // event here is the counterpart typing, never our own echo.
+    socket.on('user-typing', (data) {
+      if (data is! Map) return;
+      _typingController.add(data['isTyping'] == true);
+    });
+
     socket.on('error', (data) {
       final text = data is Map ? data['message']?.toString() : data?.toString();
       _errorController.add(text ?? 'Erro no chat.');
@@ -115,7 +126,15 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
   }
 
   @override
+  void setTyping(bool isTyping) {
+    _socket?.emit('typing', {'isTyping': isTyping});
+  }
+
+  @override
   Stream<ChatMessage> get onNewMessage => _messageController.stream;
+
+  @override
+  Stream<bool> get onTyping => _typingController.stream;
 
   @override
   Stream<String> get onError => _errorController.stream;
@@ -126,6 +145,7 @@ class SocketIoChatDataSource implements ChatSocketDataSource {
     _socket = null;
     _serviceId = null;
     _messageController.close();
+    _typingController.close();
     _errorController.close();
   }
 }
