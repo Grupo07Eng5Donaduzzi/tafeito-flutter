@@ -4,8 +4,10 @@ import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
 import 'package:tafeito_flutter/src/features/chat/domain/repositories/chat_repository.dart';
 import 'package:tafeito_flutter/src/features/chat/presentation/views/chat_thread_page.dart';
 import 'package:tafeito_flutter/src/features/services/data/models/service_dto.dart';
+import 'package:tafeito_flutter/src/features/services/domain/pricing_type.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
 import 'package:tafeito_flutter/src/features/services/presentation/viewmodels/services_view_model.dart';
+import 'package:tafeito_flutter/src/features/services/presentation/views/create_service_page.dart';
 import 'package:tafeito_flutter/src/features/services/presentation/views/edit_service_page.dart';
 
 class ServicesPage extends StatefulWidget {
@@ -32,7 +34,23 @@ class _ServicesPageState extends State<ServicesPage> {
     super.initState();
     _viewModel = ServicesViewModel(
       servicesRepository: widget.servicesRepository,
-    )..loadServices();
+    )
+      ..loadServices()
+      ..loadCategories();
+  }
+
+  Future<void> _openCreate() async {
+    final created = await Navigator.of(context).push<ServiceDto>(
+      MaterialPageRoute<ServiceDto>(
+        builder: (_) => CreateServicePage(
+          servicesRepository: widget.servicesRepository,
+          availableCategories: _viewModel.categories,
+        ),
+      ),
+    );
+    if (created != null) {
+      _viewModel.applyCreated(created);
+    }
   }
 
   @override
@@ -46,48 +64,61 @@ class _ServicesPageState extends State<ServicesPage> {
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) {
-        if (_viewModel.isLoading && _viewModel.services.isEmpty) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppTheme.primary),
-          );
-        }
-
-        if (_viewModel.errorMessage != null && _viewModel.services.isEmpty) {
-          return _CenteredState(
-            message: _viewModel.errorMessage!,
-            actionLabel: 'Tentar novamente',
-            onPressed: _viewModel.loadServices,
-          );
-        }
-
-        if (_viewModel.services.isEmpty) {
-          return _CenteredState(
-            message: 'Nenhum servico encontrado.',
-            actionLabel: 'Atualizar',
-            onPressed: _viewModel.loadServices,
-          );
-        }
-
-        return RefreshIndicator(
-          color: AppTheme.primary,
-          onRefresh: _viewModel.refresh,
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: _viewModel.services.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              return _ServiceTile(
-                service: _viewModel.services[index],
-                sessionManager: widget.sessionManager,
-                chatRepositoryFactory: widget.chatRepositoryFactory,
-                servicesRepository: widget.servicesRepository,
-                availableCategories: _viewModel.categories,
-                onUpdated: _viewModel.applyUpdated,
-              );
-            },
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            onPressed: _openCreate,
+            child: const Icon(Icons.add),
           ),
+          body: _buildBody(),
         );
       },
+    );
+  }
+
+  Widget _buildBody() {
+    if (_viewModel.isLoading && _viewModel.services.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primary),
+      );
+    }
+
+    if (_viewModel.errorMessage != null && _viewModel.services.isEmpty) {
+      return _CenteredState(
+        message: _viewModel.errorMessage!,
+        actionLabel: 'Tentar novamente',
+        onPressed: _viewModel.loadServices,
+      );
+    }
+
+    if (_viewModel.services.isEmpty) {
+      return _CenteredState(
+        message: 'Nenhum servico encontrado.',
+        actionLabel: 'Atualizar',
+        onPressed: _viewModel.loadServices,
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppTheme.primary,
+      onRefresh: _viewModel.refresh,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _viewModel.services.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _ServiceTile(
+            service: _viewModel.services[index],
+            sessionManager: widget.sessionManager,
+            chatRepositoryFactory: widget.chatRepositoryFactory,
+            servicesRepository: widget.servicesRepository,
+            availableCategories: _viewModel.categories,
+            onUpdated: _viewModel.applyUpdated,
+          );
+        },
+      ),
     );
   }
 }
@@ -147,7 +178,9 @@ class _ServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = service.duration;
+    final pricingLabel = service.pricingType == null
+        ? null
+        : PricingType.fromApi(service.pricingType).label;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -201,7 +234,7 @@ class _ServiceTile extends StatelessWidget {
               children: [
                 if (service.category.isNotEmpty)
                   _MetaChip(label: service.category),
-                if (duration != null) _MetaChip(label: duration),
+                if (pricingLabel != null) _MetaChip(label: pricingLabel),
               ],
             ),
             const SizedBox(height: 12),

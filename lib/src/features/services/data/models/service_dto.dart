@@ -6,7 +6,8 @@ class ServiceDto {
     required this.category,
     required this.price,
     required this.providerId,
-    this.duration,
+    this.pricingType,
+    this.photo,
   });
 
   final String id;
@@ -15,7 +16,8 @@ class ServiceDto {
   final String category;
   final String price;
   final String providerId;
-  final String? duration;
+  final String? pricingType;
+  final String? photo;
 
   factory ServiceDto.fromJson(Map<String, Object?> json) {
     return ServiceDto(
@@ -25,7 +27,28 @@ class ServiceDto {
       category: json['category']?.toString() ?? '',
       price: json['price']?.toString() ?? '',
       providerId: (json['userId'] ?? json['user_id'])?.toString() ?? '',
-      duration: _emptyToNull(json['duration']),
+      pricingType:
+          _emptyToNull(json['pricingType'] ?? json['pricing_type']),
+      photo: _emptyToNull(json['photo']),
+    );
+  }
+
+  ServiceDto copyWith({
+    String? name,
+    String? description,
+    String? category,
+    String? price,
+    String? pricingType,
+  }) {
+    return ServiceDto(
+      id: id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      price: price ?? this.price,
+      providerId: providerId,
+      pricingType: pricingType ?? this.pricingType,
+      photo: photo,
     );
   }
 }

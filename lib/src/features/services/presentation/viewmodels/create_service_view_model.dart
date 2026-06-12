@@ -5,28 +5,23 @@ import '../../data/models/service_dto.dart';
 import '../../domain/pricing_type.dart';
 import '../../domain/repositories/services_repository.dart';
 
-class EditServiceViewModel extends ChangeNotifier {
-  EditServiceViewModel({
-    required ServicesRepository servicesRepository,
-    required ServiceDto service,
-  })  : _servicesRepository = servicesRepository,
-        _service = service,
-        _category = service.category.isEmpty ? null : service.category,
-        _pricingType = PricingType.fromApi(service.pricingType);
+class CreateServiceViewModel extends ChangeNotifier {
+  CreateServiceViewModel({required ServicesRepository servicesRepository})
+      : _servicesRepository = servicesRepository;
 
   final ServicesRepository _servicesRepository;
-  ServiceDto _service;
 
   String? _category;
-  PricingType _pricingType;
+  PricingType _pricingType = PricingType.hourly;
   bool _isSaving = false;
   String? _errorMessage;
+  ServiceDto? _created;
 
-  ServiceDto get service => _service;
   String? get category => _category;
   PricingType get pricingType => _pricingType;
   bool get isSaving => _isSaving;
   String? get errorMessage => _errorMessage;
+  ServiceDto? get created => _created;
 
   void selectCategory(String? category) {
     _category = (category == null || category.isEmpty) ? null : category;
@@ -48,30 +43,31 @@ class EditServiceViewModel extends ChangeNotifier {
     required String description,
     required String price,
   }) async {
+    if (name.trim().isEmpty ||
+        description.trim().isEmpty ||
+        price.trim().isEmpty ||
+        _category == null) {
+      _errorMessage = 'Preencha nome, descricao, categoria e preco.';
+      notifyListeners();
+      return false;
+    }
+
     _isSaving = true;
     _errorMessage = null;
     notifyListeners();
 
-    final result = await _servicesRepository.updateService(
-      _service.id,
+    final result = await _servicesRepository.createService(
       name: name.trim(),
       description: description.trim(),
-      category: _category,
+      category: _category!,
       price: price.trim(),
       pricingType: _pricingType.apiValue,
     );
 
     var success = false;
     switch (result) {
-      case Success():
-        // PUT returns 204, so reflect the edits locally.
-        _service = _service.copyWith(
-          name: name.trim(),
-          description: description.trim(),
-          category: _category ?? '',
-          price: price.trim(),
-          pricingType: _pricingType.apiValue,
-        );
+      case Success(:final data):
+        _created = data;
         success = true;
       case Failure(:final message):
         _errorMessage = message;

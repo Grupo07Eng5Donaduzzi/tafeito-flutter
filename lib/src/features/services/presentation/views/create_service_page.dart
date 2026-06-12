@@ -1,46 +1,38 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../data/models/service_dto.dart';
 import '../../domain/repositories/services_repository.dart';
-import '../viewmodels/edit_service_view_model.dart';
+import '../viewmodels/create_service_view_model.dart';
 import '../widgets/category_selector.dart';
 import '../widgets/pricing_type_dropdown.dart';
 
-class EditServicePage extends StatefulWidget {
-  const EditServicePage({
+class CreateServicePage extends StatefulWidget {
+  const CreateServicePage({
     required this.servicesRepository,
-    required this.service,
     required this.availableCategories,
     super.key,
   });
 
   final ServicesRepository servicesRepository;
-  final ServiceDto service;
   final List<String> availableCategories;
 
   @override
-  State<EditServicePage> createState() => _EditServicePageState();
+  State<CreateServicePage> createState() => _CreateServicePageState();
 }
 
-class _EditServicePageState extends State<EditServicePage> {
-  late final EditServiceViewModel _viewModel;
-  late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
-  late final TextEditingController _priceController;
+class _CreateServicePageState extends State<CreateServicePage> {
+  late final CreateServiceViewModel _viewModel;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _viewModel = EditServiceViewModel(
+    _viewModel = CreateServiceViewModel(
       servicesRepository: widget.servicesRepository,
-      service: widget.service,
     );
     _viewModel.addListener(_onChanged);
-    _nameController = TextEditingController(text: widget.service.name);
-    _descriptionController =
-        TextEditingController(text: widget.service.description);
-    _priceController = TextEditingController(text: widget.service.price);
   }
 
   @override
@@ -75,7 +67,7 @@ class _EditServicePageState extends State<EditServicePage> {
       price: _priceController.text,
     );
     if (success && mounted) {
-      Navigator.of(context).pop(_viewModel.service);
+      Navigator.of(context).pop(_viewModel.created);
     }
   }
 
@@ -88,7 +80,7 @@ class _EditServicePageState extends State<EditServicePage> {
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
         title: const Text(
-          'Editar servico',
+          'Novo servico',
           style: TextStyle(
             color: AppTheme.textPrimary,
             fontSize: 18,
@@ -151,7 +143,7 @@ class _EditServicePageState extends State<EditServicePage> {
                       ),
                     )
                   : const Text(
-                      'Salvar',
+                      'Criar servico',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
             ),

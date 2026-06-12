@@ -11,6 +11,7 @@ class ServicesViewModel extends ChangeNotifier {
   final ServicesRepository _servicesRepository;
 
   List<ServiceDto> _services = const [];
+  List<String> _remoteCategories = const [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -18,8 +19,12 @@ class ServicesViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  /// Distinct categories currently in use, for seeding the category selector.
+  /// Categories to seed the selector: prefers the backend list, falling back
+  /// to the distinct categories present in the loaded services.
   List<String> get categories {
+    if (_remoteCategories.isNotEmpty) {
+      return _remoteCategories;
+    }
     final seen = <String>{};
     final result = <String>[];
     for (final service in _services) {
@@ -33,12 +38,26 @@ class ServicesViewModel extends ChangeNotifier {
     return result;
   }
 
+  Future<void> loadCategories() async {
+    final result = await _servicesRepository.loadCategories();
+    if (result case Success(:final data)) {
+      _remoteCategories = data;
+      notifyListeners();
+    }
+  }
+
   /// Replace a service in the list after it was edited elsewhere.
   void applyUpdated(ServiceDto updated) {
     _services = [
       for (final service in _services)
         if (service.id == updated.id) updated else service,
     ];
+    notifyListeners();
+  }
+
+  /// Prepend a newly created service to the list.
+  void applyCreated(ServiceDto created) {
+    _services = [created, ..._services];
     notifyListeners();
   }
 

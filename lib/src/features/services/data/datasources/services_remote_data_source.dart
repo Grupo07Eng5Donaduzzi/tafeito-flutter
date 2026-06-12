@@ -3,7 +3,9 @@ import '../models/service_dto.dart';
 
 abstract interface class ServicesRemoteDataSource {
   Future<List<ServiceDto>> findAll({String? category});
-  Future<ServiceDto> update(String id, JsonObject fields);
+  Future<List<String>> getCategories();
+  Future<ServiceDto> create(JsonObject fields);
+  Future<void> update(String id, JsonObject fields);
 }
 
 class ApiServicesRemoteDataSource implements ServicesRemoteDataSource {
@@ -27,12 +29,25 @@ class ApiServicesRemoteDataSource implements ServicesRemoteDataSource {
   }
 
   @override
-  Future<ServiceDto> update(String id, JsonObject fields) async {
-    final response = await _apiClient.put(
-      '/v1/services/update/$id',
-      body: fields,
-    );
+  Future<List<String>> getCategories() async {
+    final response = await _apiClient.get('/v1/services/categories');
+    final list = unwrapJsonData(response);
+    if (list is List) {
+      return list.map((value) => value.toString()).toList();
+    }
+    return const [];
+  }
+
+  @override
+  Future<ServiceDto> create(JsonObject fields) async {
+    final response = await _apiClient.post('/v1/services', body: fields);
     return ServiceDto.fromJson(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<void> update(String id, JsonObject fields) async {
+    // PUT /services/:id returns 204 No Content.
+    await _apiClient.put('/v1/services/$id', body: fields);
   }
 
   List<Object?> _extractList(Object? response) {
