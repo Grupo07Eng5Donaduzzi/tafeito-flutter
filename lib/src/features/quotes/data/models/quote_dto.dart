@@ -7,6 +7,7 @@ class QuoteDto {
     this.otherPartyName,
     this.description,
     this.proposedValue,
+    this.estimatedHoursValue,
     this.serviceDate,
     this.location,
     this.photos = const [],
@@ -18,7 +19,8 @@ class QuoteDto {
   final String createdAt;
   final String? otherPartyName;
   final String? description;
-  final String? proposedValue;
+  final String? proposedValue;      // monetary amount (R$)
+  final String? estimatedHoursValue; // estimated hours (for provider view)
   final String? serviceDate;
   final String? location;
   final List<String> photos;
@@ -71,11 +73,24 @@ class QuoteDto {
           reqId.length >= 8 ? 'Proposta #${reqId.substring(0, 8)}' : 'Proposta';
     }
 
-    final rawValue = json['estimatedHours'] ?? json['amount'];
+    // Monetary amount shown to the client (Recebidos)
     String? proposedValue;
-    if (rawValue != null) {
-      final val = double.tryParse(rawValue.toString());
+    final rawAmount = json['amount'];
+    if (rawAmount != null) {
+      final val = double.tryParse(rawAmount.toString());
       if (val != null) proposedValue = val.toStringAsFixed(2);
+    }
+
+    // Estimated hours shown to the provider (Enviados)
+    String? estimatedHoursValue;
+    final rawHours = json['estimatedHours'];
+    if (rawHours != null) {
+      final val = double.tryParse(rawHours.toString());
+      if (val != null) {
+        estimatedHoursValue = val == val.roundToDouble()
+            ? val.toInt().toString()
+            : val.toStringAsFixed(1);
+      }
     }
 
     return QuoteDto(
@@ -84,6 +99,7 @@ class QuoteDto {
       status: json['status']?.toString() ?? 'pending',
       createdAt: json['createdAt']?.toString() ?? '',
       proposedValue: proposedValue,
+      estimatedHoursValue: estimatedHoursValue,
       otherPartyName: otherPartyName,
       description: description,
     );

@@ -451,7 +451,7 @@ class _SentCard extends StatelessWidget {
                 ],
               ),
             ),
-          if (quote.proposedValue != null) ...[
+          if (quote.estimatedHoursValue != null) ...[
             const SizedBox(height: 12),
             const Divider(height: 1, color: AppTheme.inputBorder),
             const SizedBox(height: 12),
@@ -467,7 +467,7 @@ class _SentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${quote.proposedValue}h',
+                      '${quote.estimatedHoursValue}h',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 20,
@@ -545,8 +545,11 @@ class _ReceivedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = quote.status.toLowerCase() == 'pending' ||
-        quote.status.toLowerCase() == 'pendente';
+    final statusLower = quote.status.toLowerCase();
+    final isPending = statusLower == 'pending' ||
+        statusLower == 'pendente' ||
+        statusLower == 'negotiating';
+    final canNegotiate = statusLower == 'pending' || statusLower == 'pendente';
 
     return _QuoteCard(
       child: Column(
@@ -591,14 +594,16 @@ class _ReceivedCard extends StatelessWidget {
                     onPressed: () => _reject(context),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _OutlineBtn(
-                    label: 'Negociar',
-                    dark: true,
-                    onPressed: () => _negotiate(context),
+                if (canNegotiate) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _OutlineBtn(
+                      label: 'Negociar',
+                      dark: true,
+                      onPressed: () => _negotiate(context),
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
@@ -687,9 +692,10 @@ class _ReceivedCard extends StatelessWidget {
         ],
       ),
     );
+    final counterProposalText = controller.text.trim();
     controller.dispose();
     if (submitted == true) {
-      viewModel.negotiate(quote.id, counterProposal: controller.text.trim());
+      viewModel.negotiate(quote.id, counterProposal: counterProposalText);
     }
   }
 }
@@ -981,12 +987,20 @@ class _StatusBadge extends StatelessWidget {
       'accepted' || 'aceito' => 'Aceito',
       'rejected' || 'recusado' => 'Recusado',
       'negotiating' || 'negociando' => 'Negociando',
+      'awaiting_payment' => 'Ag. Pagamento',
+      'provider_confirmed' => 'Em execução',
+      'completed' || 'concluido' => 'Concluído',
+      'cancelled' || 'cancelado' => 'Cancelado',
       _ => 'Pendente',
     };
     final color = switch (status.toLowerCase()) {
       'accepted' || 'aceito' => const Color(0xFF16A34A),
       'rejected' || 'recusado' => const Color(0xFFDC2626),
       'negotiating' || 'negociando' => const Color(0xFFD97706),
+      'awaiting_payment' => const Color(0xFF7C3AED),
+      'provider_confirmed' => const Color(0xFF2563EB),
+      'completed' || 'concluido' => const Color(0xFF16A34A),
+      'cancelled' || 'cancelado' => const Color(0xFFDC2626),
       _ => const Color(0xFF6B7280),
     };
 

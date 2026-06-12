@@ -34,7 +34,7 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
   Future<List<QuoteDto>> findAvailableRequests({required String serviceId}) async {
     final response = await _apiClient.get(
       '/v1/budgetRequests/available',
-      queryParameters: {'serviceId': serviceId},
+      queryParameters: {'service_id': serviceId},
     );
     return _extractBudgetRequests(response);
   }
@@ -62,7 +62,7 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
 
   @override
   Future<QuoteDto> acceptProposal(String proposalId) async {
-    final response = await _apiClient.patch('/v1/proposals/$proposalId/accept');
+    final response = await _apiClient.post('/v1/proposals/$proposalId/accept');
     return QuoteDto.fromProposal(asJsonObject(unwrapJsonData(response)));
   }
 
@@ -71,27 +71,26 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
     final body = <String, Object?>{
       if (reason != null && reason.isNotEmpty) 'reason': reason,
     };
-    final response = await _apiClient.patch(
-      '/v1/proposals/$proposalId/reject',
-      body: body,
-    );
-    return QuoteDto.fromProposal(asJsonObject(unwrapJsonData(response)));
+    // API returns 204 No Content — build synthetic DTO with new status
+    await _apiClient.patch('/v1/proposals/$proposalId/reject', body: body);
+    return QuoteDto(id: proposalId, serviceName: '', status: 'REJECTED', createdAt: '');
   }
 
   @override
   Future<QuoteDto> contestProposal(String proposalId, String reason) async {
-    final response = await _apiClient.patch(
+    // API returns 204 No Content — build synthetic DTO with new status
+    await _apiClient.patch(
       '/v1/proposals/$proposalId/contest',
       body: {'reason': reason},
     );
-    return QuoteDto.fromProposal(asJsonObject(unwrapJsonData(response)));
+    return QuoteDto(id: proposalId, serviceName: '', status: 'NEGOTIATING', createdAt: '');
   }
 
   @override
   Future<void> cancelRequest(String requestId) async {
     await _apiClient.patch(
       '/v1/budgetRequests/$requestId/cancel',
-      body: {'reason': 'Cancelado pelo cliente'},
+      body: {'reason': 'Cancelado pelo prestador'},
     );
   }
 

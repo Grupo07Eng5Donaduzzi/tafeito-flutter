@@ -230,7 +230,26 @@ class QuotesHomeViewModel extends ChangeNotifier {
       case Success(:final data):
         final idx = _received.indexWhere((q) => q.id == proposalId);
         if (idx != -1) {
-          _received = List.of(_received)..[idx] = data;
+          final existing = _received[idx];
+          // When API returns 204 (reject/contest), the datasource returns a
+          // synthetic DTO with the correct id but empty serviceName.
+          // Merge: preserve display fields, only update status.
+          final updated = data.serviceName.isEmpty
+              ? QuoteDto(
+                  id: existing.id,
+                  serviceName: existing.serviceName,
+                  status: data.status,
+                  createdAt: existing.createdAt,
+                  otherPartyName: existing.otherPartyName,
+                  description: existing.description,
+                  proposedValue: existing.proposedValue,
+                  estimatedHoursValue: existing.estimatedHoursValue,
+                  serviceDate: existing.serviceDate,
+                  location: existing.location,
+                  photos: existing.photos,
+                )
+              : data;
+          _received = List.of(_received)..[idx] = updated;
         }
         notifyListeners();
         return true;
