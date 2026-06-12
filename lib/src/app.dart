@@ -23,6 +23,8 @@ import 'features/auth/presentation/views/register_page.dart';
 import 'features/auth/presentation/widgets/auth_logo.dart';
 import 'features/profile/data/datasources/profile_remote_data_source.dart';
 import 'features/profile/data/repositories/profile_repository_impl.dart';
+import 'features/quotes/data/datasources/quotes_remote_data_source.dart';
+import 'features/quotes/data/repositories/quotes_repository_impl.dart';
 import 'features/services/data/datasources/services_remote_data_source.dart';
 import 'features/services/data/repositories/services_repository_impl.dart';
 
@@ -50,6 +52,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
   late final AuthRepositoryImpl _authRepository;
   late final ProfileRepositoryImpl _profileRepository;
   late final ServicesRepositoryImpl _servicesRepository;
+  late final QuotesRepositoryImpl _quotesRepository;
   late final Future<void> _sessionInitialization;
 
   @override
@@ -77,6 +80,9 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
     _servicesRepository = ServicesRepositoryImpl(
       remoteDataSource: ApiServicesRemoteDataSource(apiClient: _apiClient),
     );
+    _quotesRepository = QuotesRepositoryImpl(
+      remoteDataSource: ApiQuotesRemoteDataSource(apiClient: _apiClient),
+    );
     _sessionInitialization = _sessionManager.initialize();
   }
 
@@ -103,6 +109,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                       sessionManager: _sessionManager,
                       profileRepository: _profileRepository,
                       servicesRepository: _servicesRepository,
+                      quotesRepository: _quotesRepository,
                     ),
                   );
                 }
@@ -150,6 +157,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                 sessionManager: _sessionManager,
                 profileRepository: _profileRepository,
                 servicesRepository: _servicesRepository,
+                quotesRepository: _quotesRepository,
               ),
             ),
       },

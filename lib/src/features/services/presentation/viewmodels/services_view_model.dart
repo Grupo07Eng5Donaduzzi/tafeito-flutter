@@ -13,6 +13,7 @@ class ServicesViewModel extends ChangeNotifier {
   List<ServiceDto> _services = const [];
   bool _isLoading = false;
   String? _errorMessage;
+  String? _lastUserId;
 
   List<ServiceDto> get services => _services;
   bool get isLoading => _isLoading;
@@ -33,7 +34,28 @@ class ServicesViewModel extends ChangeNotifier {
     _setLoading(false);
   }
 
+  Future<void> loadMyServices({required String userId}) async {
+    _lastUserId = userId;
+    _setLoading(true);
+    _errorMessage = null;
+
+    final result = await _servicesRepository.findMine(userId: userId);
+    switch (result) {
+      case Success(:final data):
+        _services = data;
+      case Failure(:final message):
+        _errorMessage = message;
+    }
+
+    _setLoading(false);
+  }
+
   Future<void> refresh() => loadServices();
+
+  Future<void> refreshMine() {
+    if (_lastUserId == null) return Future.value();
+    return loadMyServices(userId: _lastUserId!);
+  }
 
   void _setLoading(bool value) {
     _isLoading = value;
