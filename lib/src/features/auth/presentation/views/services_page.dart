@@ -6,6 +6,7 @@ import 'package:tafeito_flutter/src/features/chat/presentation/views/chat_thread
 import 'package:tafeito_flutter/src/features/services/data/models/service_dto.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
 import 'package:tafeito_flutter/src/features/services/presentation/viewmodels/services_view_model.dart';
+import 'package:tafeito_flutter/src/features/services/presentation/views/edit_service_page.dart';
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({
@@ -79,6 +80,9 @@ class _ServicesPageState extends State<ServicesPage> {
                 service: _viewModel.services[index],
                 sessionManager: widget.sessionManager,
                 chatRepositoryFactory: widget.chatRepositoryFactory,
+                servicesRepository: widget.servicesRepository,
+                availableCategories: _viewModel.categories,
+                onUpdated: _viewModel.applyUpdated,
               );
             },
           ),
@@ -93,11 +97,34 @@ class _ServiceTile extends StatelessWidget {
     required this.service,
     required this.sessionManager,
     required this.chatRepositoryFactory,
+    required this.servicesRepository,
+    required this.availableCategories,
+    required this.onUpdated,
   });
 
   final ServiceDto service;
   final SessionManager sessionManager;
   final ChatRepository Function() chatRepositoryFactory;
+  final ServicesRepository servicesRepository;
+  final List<String> availableCategories;
+  final ValueChanged<ServiceDto> onUpdated;
+
+  bool get _isOwner => sessionManager.session?.user.id == service.providerId;
+
+  Future<void> _openEdit(BuildContext context) async {
+    final updated = await Navigator.of(context).push<ServiceDto>(
+      MaterialPageRoute<ServiceDto>(
+        builder: (_) => EditServicePage(
+          servicesRepository: servicesRepository,
+          service: service,
+          availableCategories: availableCategories,
+        ),
+      ),
+    );
+    if (updated != null) {
+      onUpdated(updated);
+    }
+  }
 
   void _openChat(BuildContext context) {
     final session = sessionManager.session;
@@ -180,21 +207,37 @@ class _ServiceTile extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () => _openChat(context),
-                icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                label: const Text(
-                  'Conversar',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
+              child: _isOwner
+                  ? OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
+                        side: const BorderSide(color: AppTheme.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () => _openEdit(context),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text(
+                        'Editar',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () => _openChat(context),
+                      icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                      label: const Text(
+                        'Conversar',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
             ),
           ],
         ),
