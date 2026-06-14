@@ -5,11 +5,16 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tafeito_flutter/src/core/session/session_manager.dart';
 import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
+import 'package:tafeito_flutter/src/features/profile/domain/models/payment_history_item.dart';
 import 'package:tafeito_flutter/src/features/profile/presentation/viewmodels/profile_view_model.dart';
 
-import '../../../auth/presentation/views/login_page.dart';
+import '../../data/datasources/profile_payments_remote_data_source.dart';
+import '../../data/repositories/profile_payments_repository_impl.dart';
+import '../../presentation/viewmodels/profile_payments_view_model.dart';
 
-import '../../domain/repositories/profile_delete_repository.dart';
+
+
+import '../../../auth/presentation/views/login_page.dart';
 import '../../data/datasources/profile_delete_remote_data_source.dart';
 import '../../data/repositories/profile_delete_repository_impl.dart';
 import '../../presentation/viewmodels/profile_delete_view_model.dart';
@@ -33,7 +38,8 @@ class _ProfilePageState extends State<ProfilePage> {
   Uint8List? _profileImageBytes;
 
   late final ProfileViewModel _viewModel;
-  late final Future<List<MockPayment>> _paymentsFuture;
+  late final ProfilePaymentsViewModel _paymentsViewModel;
+  late final Future<List<PaymentHistoryItem>> _paymentsFuture;
 
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -49,7 +55,22 @@ class _ProfilePageState extends State<ProfilePage> {
       profileRepository: widget.profileRepository,
     )..loadMe();
 
-    _paymentsFuture = _fetchMockPaymentsFromApi();
+    final remoteDataSource = ProfilePaymentsRemoteDataSource(
+      apiClient: HttpApiClient(
+        accessTokenProvider: () => widget.sessionManager.session?.accessToken,
+      ),
+    );
+
+    final paymentsRepository = ProfilePaymentsRepositoryImpl(
+      remoteDataSource: remoteDataSource,
+      sessionManager: widget.sessionManager,
+    );
+
+    _paymentsViewModel = ProfilePaymentsViewModel(
+      paymentsRepository: paymentsRepository,
+    );
+
+    _paymentsFuture = _paymentsViewModel.loadMyPayments();
   }
 
   @override
@@ -57,6 +78,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _viewModel.dispose();
+    _paymentsViewModel.dispose();
     super.dispose();
   }
 
@@ -164,7 +186,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     await widget.sessionManager.logout();
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     Navigator.of(context).pushNamedAndRemoveUntil(
       LoginPage.routeName,
@@ -414,7 +436,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              FutureBuilder<List<MockPayment>>(
+FutureBuilder<List<PaymentHistoryItem>>(
                 future: _paymentsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -567,7 +589,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildPaymentItem(MockPayment payment) {
+  Widget _buildPaymentItem(PaymentHistoryItem payment) {
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
@@ -613,33 +635,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<List<MockPayment>> _fetchMockPaymentsFromApi() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-
-    return [
-      MockPayment(
-        title: 'Plantio de jardim',
-        authorDate: 'Ana - 18/03/2026',
-        amount: 'R\$ 100,00',
-      ),
-      MockPayment(
-        title: 'Poda de arvore',
-        authorDate: 'Carlos - 15/03/2026',
-        amount: 'R\$ 250,00',
-      ),
-    ];
-  }
 }
 
-class MockPayment {
-  MockPayment({
-    required this.title,
-    required this.authorDate,
-    required this.amount,
-  });
-
-  final String title;
-  final String authorDate;
-  final String amount;
-}
 
