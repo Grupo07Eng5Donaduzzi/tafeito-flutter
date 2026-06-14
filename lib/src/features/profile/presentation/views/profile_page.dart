@@ -7,7 +7,13 @@ import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
 import 'package:tafeito_flutter/src/features/profile/presentation/viewmodels/profile_view_model.dart';
 
-import 'login_page.dart';
+import '../../../auth/presentation/views/login_page.dart';
+
+import '../../domain/repositories/profile_delete_repository.dart';
+import '../../data/datasources/profile_delete_remote_data_source.dart';
+import '../../data/repositories/profile_delete_repository_impl.dart';
+import '../../presentation/viewmodels/profile_delete_view_model.dart';
+import '../../../../core/network/api_client.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -25,16 +31,33 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   Uint8List? _profileImageBytes;
+
   late final ProfileViewModel _viewModel;
   late final Future<List<MockPayment>> _paymentsFuture;
+
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _isUpdatingPassword = false;
+  String? _passwordErrorMessage;
 
   @override
   void initState() {
     super.initState();
+
     _viewModel = ProfileViewModel(
       profileRepository: widget.profileRepository,
     )..loadMe();
+
     _paymentsFuture = _fetchMockPaymentsFromApi();
+  }
+
+  @override
+  void dispose() {
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    _viewModel.dispose();
+    super.dispose();
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -81,10 +104,134 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  @override
-  void dispose() {
-    _viewModel.dispose();
-    super.dispose();
+  Future<void> _confirmAndDeleteAccount() async {
+    // Confirmação para evitar exclusão acidental.
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Excluir conta'),
+          content: const Text(
+            'Tem certeza que deseja excluir sua conta? Essa ação não pode ser desfeita.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(
+                'Excluir',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    if (_viewModel.me == null) return;
+
+    // Delete no backend é no controller Users: DELETE /v1/users/:id
+    // Aqui não temos o ApiClient do app via DI, então instanciamos uma implementação HTTP.
+    // (Se você já usa um ApiClient configurado no TaFeitoApp, o ideal é injetar o ProfileDeleteViewModel.)
+    final deleteViewModel = ProfileDeleteViewModel(
+      deleteRepository: ProfileDeleteRepositoryImpl(
+        remoteDataSource: ApiProfileDeleteRemoteDataSource(
+          apiClient: HttpApiClient(
+            accessTokenProvider: () => widget.sessionManager.session?.accessToken,
+          ),
+        ),
+      ),
+    );
+
+    final deleted = await deleteViewModel.deleteAccount(
+      id: _viewModel.me!.id,
+    );
+
+    if (!mounted) return;
+
+    if (!deleted) {
+      final msg = deleteViewModel.errorMessage ?? 'Nao foi possivel excluir sua conta agora.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+      return;
+    }
+
+    await widget.sessionManager.logout();
+
+    if (!context.mounted) return;
+
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      LoginPage.routeName,
+      (route) => false,
+    );
+  }
+
+  Future<void> _updatePassword() async {
+
+    setState(() {
+      _passwordErrorMessage = null;
+      _isUpdatingPassword = true;
+    });
+
+    final newPassword = _newPasswordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    // Mantém a mesma lógica de validação do fluxo de recuperação de senha.
+    if (newPassword.isEmpty) {
+      setState(() {
+        _passwordErrorMessage = 'Informe uma senha.';
+        _isUpdatingPassword = false;
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setState(() {
+        _passwordErrorMessage = 'A senha deve ter pelo menos 6 caracteres.';
+        _isUpdatingPassword = false;
+      });
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      setState(() {
+        _passwordErrorMessage = 'As senhas nao conferem.';
+        _isUpdatingPassword = false;
+      });
+      return;
+    }
+
+    try {
+      await _viewModel.changePassword(
+        currentPassword: '',
+        newPassword: newPassword,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _newPasswordController.clear();
+        _confirmPasswordController.clear();
+        _passwordErrorMessage = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _passwordErrorMessage = 'Nao foi possivel atualizar a senha agora.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingPassword = false;
+        });
+      }
+    }
   }
 
   @override
@@ -93,8 +240,12 @@ class _ProfilePageState extends State<ProfilePage> {
       animation: _viewModel,
       builder: (context, _) {
         if (_viewModel.isLoading && _viewModel.me == null) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppTheme.primary),
+          return const Scaffold(
+            body: SafeArea(
+              child: Center(
+                child: CircularProgressIndicator(color: AppTheme.primary),
+              ),
+            ),
           );
         }
 
@@ -205,22 +356,28 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 16),
               _buildInputField(
-                label: 'Senha atual',
-                hintText: 'Digite a senha atual',
-                isPassword: true,
-              ),
-              const SizedBox(height: 16),
-              _buildInputField(
                 label: 'Nova senha',
                 hintText: 'Digite a nova senha',
                 isPassword: true,
+                controller: _newPasswordController,
               ),
               const SizedBox(height: 16),
               _buildInputField(
                 label: 'Confirmar nova senha',
                 hintText: 'Repita a nova senha',
                 isPassword: true,
+                controller: _confirmPasswordController,
               ),
+              if (_passwordErrorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _passwordErrorMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -234,11 +391,19 @@ class _ProfilePageState extends State<ProfilePage> {
                     vertical: 12,
                   ),
                 ),
-                onPressed: () {},
-                child: const Text(
-                  'Atualizar senha',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                onPressed: _isUpdatingPassword ? null : _updatePassword,
+                child: _isUpdatingPassword
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Atualizar senha',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
@@ -296,9 +461,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 onPressed: () async {
                   await widget.sessionManager.logout();
 
-                  if (!context.mounted) {
-                    return;
-                  }
+                  if (!context.mounted) return;
 
                   Navigator.of(context).pushNamedAndRemoveUntil(
                     LoginPage.routeName,
@@ -312,7 +475,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 backgroundColor: const Color(0xFFE55B4B),
                 textColor: Colors.white,
                 iconColor: Colors.white,
-                onPressed: () {},
+                onPressed: () => _confirmAndDeleteAccount(),
               ),
             ],
           ),
@@ -479,3 +642,4 @@ class MockPayment {
   final String authorDate;
   final String amount;
 }
+

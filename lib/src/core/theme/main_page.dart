@@ -3,7 +3,7 @@ import 'package:tafeito_flutter/src/core/session/session_manager.dart';
 import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/chat_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/home_page.dart';
-import 'package:tafeito_flutter/src/features/auth/presentation/views/profile_page.dart';
+import 'package:tafeito_flutter/src/features/profile/presentation/views/profile_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/services_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/widgets/auth_logo.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
