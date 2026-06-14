@@ -40,6 +40,12 @@ class _ProfilePageState extends State<ProfilePage> {
   late final ProfileViewModel _viewModel;
   late final ProfilePaymentsViewModel _paymentsViewModel;
   late final Future<List<PaymentHistoryItem>> _paymentsFuture;
+  final _paymentSearchController = TextEditingController();
+  List<PaymentHistoryItem> _allPayments = [];
+  List<PaymentHistoryItem> _filteredPayments = [];
+  String _paymentSearchQuery = '';
+  DateTime? _paymentFromDate;
+  DateTime? _paymentToDate;
 
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -70,13 +76,86 @@ class _ProfilePageState extends State<ProfilePage> {
       paymentsRepository: paymentsRepository,
     );
 
-    _paymentsFuture = _paymentsViewModel.loadMyPayments();
+    _paymentsFuture = _loadPayments();
+  }
+
+  Future<List<PaymentHistoryItem>> _loadPayments() async {
+    final payments = await _paymentsViewModel.loadMyPayments();
+    if (!mounted) return payments;
+
+    setState(() {
+      _allPayments = payments;
+      _applyPaymentFilters();
+    });
+
+    return _filteredPayments;
+  }
+
+  void _applyPaymentFilters() {
+    _filteredPayments = _allPayments.where((payment) {
+      final query = _paymentSearchQuery.trim().toLowerCase();
+      final matchesQuery = query.isEmpty || payment.title.toLowerCase().contains(query);
+
+      final fromOk = _paymentFromDate == null || !payment.createdAt.isBefore(_paymentFromDate!);
+      final toOk = _paymentToDate == null || !payment.createdAt.isAfter(_paymentToDate!);
+
+      return matchesQuery && fromOk && toOk;
+    }).toList();
+
+    _filteredPayments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  void _onPaymentSearchChanged(String value) {
+    setState(() {
+      _paymentSearchQuery = value;
+      _applyPaymentFilters();
+    });
+  }
+
+  Future<void> _pickPaymentFromDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _paymentFromDate ?? DateTime.now().subtract(const Duration(days: 365)),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (selected == null) return;
+    setState(() {
+      _paymentFromDate = selected;
+      if (_paymentToDate != null && _paymentToDate!.isBefore(selected)) {
+        _paymentToDate = selected;
+      }
+      _applyPaymentFilters();
+    });
+  }
+
+  Future<void> _pickPaymentToDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _paymentToDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (selected == null) return;
+    setState(() {
+      _paymentToDate = selected;
+      if (_paymentFromDate != null && _paymentFromDate!.isAfter(selected)) {
+        _paymentFromDate = selected;
+      }
+      _applyPaymentFilters();
+    });
+  }
+
+  String _formatFilterDate(DateTime? date) {
+    if (date == null) return 'Qualquer data';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   @override
   void dispose() {
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _paymentSearchController.dispose();
     _viewModel.dispose();
     _paymentsViewModel.dispose();
     super.dispose();
@@ -436,7 +515,54 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-FutureBuilder<List<PaymentHistoryItem>>(
+              TextFormField(
+                controller: _paymentSearchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar por nome ou serviço',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: _onPaymentSearchChanged,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _pickPaymentFromDate,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textPrimary,
+                        backgroundColor: const Color(0xFFF9FAFB),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text('De: ${_formatFilterDate(_paymentFromDate)}'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _pickPaymentToDate,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textPrimary,
+                        backgroundColor: const Color(0xFFF9FAFB),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text('Até: ${_formatFilterDate(_paymentToDate)}'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              FutureBuilder<List<PaymentHistoryItem>>(
                 future: _paymentsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {

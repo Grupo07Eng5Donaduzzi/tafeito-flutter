@@ -34,6 +34,7 @@ class ProfilePaymentsRepositoryImpl implements ProfilePaymentsRepository {
       final createdAt = createdAtString != null
           ? DateTime.tryParse(createdAtString)
           : null;
+      final parsedCreatedAt = createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final authorDate = createdAt != null
           ? '${createdAt.day.toString().padLeft(2, '0')}/${createdAt.month.toString().padLeft(2, '0')}/${createdAt.year}'
           : createdAtString ?? '';
@@ -44,10 +45,12 @@ class ProfilePaymentsRepositoryImpl implements ProfilePaymentsRepository {
           authorDate: authorDate,
           amount: amount,
           status: status,
+          createdAt: parsedCreatedAt,
         ),
       );
     }
 
+    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
   }
 }
