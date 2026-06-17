@@ -33,6 +33,11 @@ class AuthSessionResponse {
       UserType.client.name,
     );
 
+    final hasPixKey = _firstString(
+      userJson['pixKey'],
+      sessionJson['pixKey'],
+    ).isNotEmpty;
+
     return AuthSessionResponse(
       accessToken: _firstString(
         sessionJson['accessToken'],
@@ -43,10 +48,12 @@ class AuthSessionResponse {
       userId: _firstString(userJson['id'], sessionJson['id'], ''),
       name: _firstString(userJson['name'], sessionJson['name'], ''),
       email: _firstString(userJson['email'], sessionJson['email'], ''),
-      userType: UserType.values.firstWhere(
-        (type) => type.name == userTypeName,
-        orElse: () => UserType.client,
-      ),
+      userType: hasPixKey
+          ? UserType.provider
+          : UserType.values.firstWhere(
+              (type) => type.name == userTypeName,
+              orElse: () => UserType.client,
+            ),
       expiresAt: _parseExpiresAt(sessionJson),
     );
   }
