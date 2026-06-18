@@ -46,13 +46,13 @@ class ServiceDto {
       unit: _unitFromPricingType(
         _emptyToNull(json['unit'] ?? json['duration'] ?? json['pricingType']),
       ),
-      imageUrl: _emptyToNull(
+      imageUrl: _toServicePhotoUrl(_emptyToNull(
         json['imageUrl'] ??
             json['image_url'] ??
             json['image'] ??
             json['photoUrl'] ??
             json['photo'],
-      ),
+      )),
       providerName: _emptyToNull(
         providerName ?? json['providerName'] ?? json['userName'],
       ),
@@ -67,6 +67,12 @@ class ServiceDto {
       ),
     );
   }
+}
+
+String? _toServicePhotoUrl(String? value) {
+  if (value == null) return null;
+  if (value.startsWith('http')) return value;
+  return 'https://tafeito.rietto.com/main/uploads/services/$value';
 }
 
 String? _emptyToNull(Object? value) {

@@ -28,9 +28,11 @@ class UserDto {
       pixKey: (json['pixKey'] ?? '').toString().isEmpty
           ? null
           : (json['pixKey'] ?? '').toString(),
-      avatarUrl: (json['avatarUrl'] ?? '').toString().isEmpty
-          ? null
-          : (json['avatarUrl'] ?? '').toString(),
+      avatarUrl: _toAvatarUrl(
+        (json['avatarUrl'] ?? '').toString().isEmpty
+            ? null
+            : (json['avatarUrl'] ?? '').toString(),
+      ),
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
     );
@@ -46,4 +48,10 @@ class UserDto {
 
   final DateTime? createdAt;
   final DateTime? updatedAt;
+}
+
+String? _toAvatarUrl(String? value) {
+  if (value == null) return null;
+  if (value.startsWith('http')) return value;
+  return 'https://tafeito.rietto.com/main/uploads/avatars/$value';
 }
