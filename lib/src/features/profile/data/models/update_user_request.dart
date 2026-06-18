@@ -5,7 +5,6 @@ class UpdateUserRequest {
     this.password,
     this.identification,
     this.pixKey,
-    this.hourlyRate,
   });
 
   factory UpdateUserRequest.fromJson(Map<String, dynamic> json) {
@@ -15,7 +14,6 @@ class UpdateUserRequest {
       password: json['password'] as String?,
       identification: json['identification'] as String?,
       pixKey: json['pixKey'] as String?,
-      hourlyRate: (json['hourlyRate'] as num?)?.toDouble(),
     );
   }
 
@@ -24,7 +22,6 @@ class UpdateUserRequest {
   final String? password;
   final String? identification;
   final String? pixKey;
-  final double? hourlyRate;
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,7 +30,6 @@ class UpdateUserRequest {
       if (password != null) 'password': password,
       if (identification != null) 'identification': identification,
       if (pixKey != null) 'pixKey': pixKey,
-      if (hourlyRate != null) 'hourlyRate': hourlyRate,
     };
   }
 }

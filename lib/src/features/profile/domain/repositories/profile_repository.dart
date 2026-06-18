@@ -14,7 +14,6 @@ abstract interface class ProfileRepository {
 
   Future<Result<UserDto>> becomeProvider({
     required String pixKey,
-    required double hourlyRate,
   });
 
   Future<Result<UserDto>> uploadAvatar({

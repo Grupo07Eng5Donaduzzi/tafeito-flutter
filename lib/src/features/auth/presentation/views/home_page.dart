@@ -23,8 +23,7 @@ class HomePage extends StatefulWidget {
   final QuotesRepository quotesRepository;
   final ServicesRepository servicesRepository;
   final bool isProvider;
-  final Future<bool> Function(String pixKey, double hourlyRate)?
-      onBecomeProvider;
+  final Future<bool> Function(String pixKey)? onBecomeProvider;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -390,7 +389,7 @@ class _ProviderBanner extends StatelessWidget {
 class _BecomeProviderSheet extends StatefulWidget {
   const _BecomeProviderSheet({required this.onSubmit});
 
-  final Future<bool> Function(String pixKey, double hourlyRate)? onSubmit;
+  final Future<bool> Function(String pixKey)? onSubmit;
 
   @override
   State<_BecomeProviderSheet> createState() => _BecomeProviderSheetState();
@@ -399,14 +398,12 @@ class _BecomeProviderSheet extends StatefulWidget {
 class _BecomeProviderSheetState extends State<_BecomeProviderSheet> {
   final _formKey = GlobalKey<FormState>();
   final _pixController = TextEditingController();
-  final _hourlyRateController = TextEditingController(text: '50');
   bool _isLoading = false;
   String? _error;
 
   @override
   void dispose() {
     _pixController.dispose();
-    _hourlyRateController.dispose();
     super.dispose();
   }
 
@@ -417,13 +414,8 @@ class _BecomeProviderSheetState extends State<_BecomeProviderSheet> {
     }
 
     setState(() => _isLoading = true);
-    final hourlyRate = double.tryParse(
-          _hourlyRateController.text.trim().replaceAll(',', '.'),
-        ) ??
-        50;
     final ok = await (widget.onSubmit?.call(
           _pixController.text.trim(),
-          hourlyRate,
         ) ??
         Future<bool>.value(false));
     if (!mounted) {
@@ -484,29 +476,6 @@ class _BecomeProviderSheetState extends State<_BecomeProviderSheet> {
               validator: (value) {
                 if ((value ?? '').trim().isEmpty) {
                   return 'Informe sua chave Pix.';
-                }
-                return null;
-              },
-              onFieldSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _hourlyRateController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Valor por hora',
-                prefixText: 'R\$ ',
-                hintText: '50,00',
-              ),
-              validator: (value) {
-                final hourlyRate = double.tryParse(
-                  (value ?? '').trim().replaceAll(',', '.'),
-                );
-                if (hourlyRate == null || hourlyRate <= 0) {
-                  return 'Informe um valor por hora válido.';
                 }
                 return null;
               },

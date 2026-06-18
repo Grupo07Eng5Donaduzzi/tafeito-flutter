@@ -56,12 +56,11 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future<bool> _onBecomeProvider(String pixKey, double hourlyRate) async {
+  Future<bool> _onBecomeProvider(String pixKey) async {
     if (pixKey.isEmpty) return false;
 
     final result = await widget.profileRepository.becomeProvider(
       pixKey: pixKey,
-      hourlyRate: hourlyRate,
     );
     if (result is Success && mounted) {
       setState(() => _isProvider = true);

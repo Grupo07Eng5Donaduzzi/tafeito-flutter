@@ -37,12 +37,10 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<Result<UserDto>> becomeProvider({
     required String pixKey,
-    required double hourlyRate,
   }) async {
     try {
       final user = await remoteDataSource.becomeProvider(
         pixKey: pixKey,
-        hourlyRate: hourlyRate,
       );
       return Success(user);
     } on Exception {

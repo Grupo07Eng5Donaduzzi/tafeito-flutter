@@ -5,7 +5,6 @@ class UserDto {
     required this.email,
     this.identification,
     this.pixKey,
-    this.hourlyRate,
     this.avatarUrl,
     this.createdAt,
     this.updatedAt,
@@ -29,9 +28,6 @@ class UserDto {
       pixKey: (json['pixKey'] ?? '').toString().isEmpty
           ? null
           : (json['pixKey'] ?? '').toString(),
-      hourlyRate: json['hourlyRate'] == null
-          ? null
-          : (json['hourlyRate'] as num).toDouble(),
       avatarUrl: (json['avatarUrl'] ?? '').toString().isEmpty
           ? null
           : (json['avatarUrl'] ?? '').toString(),
@@ -46,7 +42,6 @@ class UserDto {
 
   final String? identification;
   final String? pixKey;
-  final double? hourlyRate;
   final String? avatarUrl;
 
   final DateTime? createdAt;
