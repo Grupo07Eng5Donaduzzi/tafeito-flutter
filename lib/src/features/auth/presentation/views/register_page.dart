@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/main_page.dart';
 import '../formatters/cpf_cnpj_input_formatter.dart';
 import '../viewmodels/register_view_model.dart';
 import '../widgets/auth_logo.dart';
@@ -183,12 +184,18 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-    await widget.viewModel.register(
+    final didRegister = await widget.viewModel.register(
       name: _nameController.text,
       document: _documentController.text,
       email: _emailController.text,
       password: _passwordController.text,
     );
+
+    if (!mounted || !didRegister) {
+      return;
+    }
+
+    Navigator.of(context).pushReplacementNamed(MainPage.routeName);
   }
 
   String? _validateName(String? value) {
@@ -224,7 +231,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     return null;
   }
-
 
   String? _validatePassword(String? value) {
     final password = value ?? '';

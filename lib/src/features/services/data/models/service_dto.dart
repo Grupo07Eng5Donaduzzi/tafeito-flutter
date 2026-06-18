@@ -42,17 +42,29 @@ class ServiceDto {
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
       price: json['price']?.toString() ?? '',
-      duration: _emptyToNull(json['duration']),
-      unit: _emptyToNull(json['unit']),
-      imageUrl: _emptyToNull(
-        json['imageUrl'] ?? json['image_url'] ?? json['image'],
+      duration: _emptyToNull(json['duration'] ?? json['pricingType']),
+      unit: _unitFromPricingType(
+        _emptyToNull(json['unit'] ?? json['duration'] ?? json['pricingType']),
       ),
-      providerName: _emptyToNull(providerName ?? json['providerName']),
+      imageUrl: _emptyToNull(
+        json['imageUrl'] ??
+            json['image_url'] ??
+            json['image'] ??
+            json['photoUrl'] ??
+            json['photo'],
+      ),
+      providerName: _emptyToNull(
+        providerName ?? json['providerName'] ?? json['userName'],
+      ),
       providerId: _emptyToNull(
         providerId ?? json['providerId'] ?? json['userId'] ?? json['user_id'],
       ),
-      rating: _emptyToNull(json['rating'] ?? json['averageRating']),
-      reviewCount: _emptyToNull(json['reviewCount'] ?? json['review_count']),
+      rating: _emptyToNull(
+        json['rating'] ?? json['averageRating'] ?? json['ratingAverage'],
+      ),
+      reviewCount: _emptyToNull(
+        json['reviewCount'] ?? json['review_count'] ?? json['reviewsCount'],
+      ),
     );
   }
 }
@@ -64,4 +76,13 @@ String? _emptyToNull(Object? value) {
   }
 
   return text;
+}
+
+String? _unitFromPricingType(String? value) {
+  return switch (value?.toUpperCase()) {
+    'HOURLY' => 'hora',
+    'MONTHLY' => 'mês',
+    'DAILY' => 'dia',
+    _ => value,
+  };
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -33,6 +34,25 @@ abstract interface class ApiClient {
     String path, {
     Map<String, String?>? queryParameters,
   });
+
+  Future<Object?> multipartPost(
+    String path, {
+    required List<MultipartFilePayload> files,
+    JsonObject? fields,
+    Map<String, String?>? queryParameters,
+  });
+}
+
+class MultipartFilePayload {
+  const MultipartFilePayload({
+    required this.fieldName,
+    required this.fileName,
+    required this.bytes,
+  });
+
+  final String fieldName;
+  final String fileName;
+  final Uint8List bytes;
 }
 
 class HttpApiClient implements ApiClient {
@@ -45,8 +65,8 @@ class HttpApiClient implements ApiClient {
         _accessTokenProvider = accessTokenProvider;
 
   static const defaultBaseUrl = String.fromEnvironment(
-    'TAFEITO_API_BASE_URL',
-    defaultValue: 'https://tafeito.rietto.com',
+    'TAFEITO_MAIN_API_BASE_URL',
+    defaultValue: 'https://tafeito.rietto.com/main',
   );
 
   final http.Client _httpClient;
@@ -119,6 +139,51 @@ class HttpApiClient implements ApiClient {
     );
   }
 
+  @override
+  Future<Object?> multipartPost(
+    String path, {
+    required List<MultipartFilePayload> files,
+    JsonObject? fields,
+    Map<String, String?>? queryParameters,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      _resolve(path, queryParameters),
+    );
+    request.headers.addAll(await _headers(jsonContent: false));
+    for (final entry in (fields ?? const <String, Object?>{}).entries) {
+      final value = entry.value;
+      if (value != null) {
+        request.fields[entry.key] = value.toString();
+      }
+    }
+    for (final file in files) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          file.fieldName,
+          file.bytes,
+          filename: file.fileName,
+        ),
+      );
+    }
+
+    final streamedResponse = await _httpClient.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiClientException(
+        statusCode: response.statusCode,
+        message: _readErrorMessage(response),
+      );
+    }
+
+    if (response.statusCode == 204 || response.bodyBytes.isEmpty) {
+      return <String, Object?>{};
+    }
+
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Object?;
+  }
+
   Future<Object?> _send(
     String method,
     String path, {
@@ -149,14 +214,14 @@ class HttpApiClient implements ApiClient {
     return jsonDecode(utf8.decode(response.bodyBytes)) as Object?;
   }
 
-  Future<Map<String, String>> _headers() async {
+  Future<Map<String, String>> _headers({bool jsonContent = true}) async {
     final accessToken = await Future<String?>.value(
       _accessTokenProvider?.call(),
     );
 
     return {
       'Accept': 'application/json',
-      'Content-Type': 'application/json',
+      if (jsonContent) 'Content-Type': 'application/json',
       if (accessToken != null && accessToken.isNotEmpty)
         'Authorization': 'Bearer $accessToken',
     };
@@ -247,6 +312,16 @@ class UnimplementedApiClient implements ApiClient {
   @override
   Future<Object?> delete(
     String path, {
+    Map<String, String?>? queryParameters,
+  }) {
+    return _throw(path);
+  }
+
+  @override
+  Future<Object?> multipartPost(
+    String path, {
+    required List<MultipartFilePayload> files,
+    JsonObject? fields,
     Map<String, String?>? queryParameters,
   }) {
     return _throw(path);

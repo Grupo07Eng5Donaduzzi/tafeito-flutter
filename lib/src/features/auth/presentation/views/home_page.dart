@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/session/session_manager.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_ui.dart';
 import '../../../../features/quotes/data/models/quote_dto.dart';
 import '../../../../features/quotes/domain/repositories/quotes_repository.dart';
 import '../../../../features/quotes/presentation/viewmodels/quotes_home_view_model.dart';
+import '../../../../features/payments/presentation/views/pix_payment_page.dart';
 import '../../../../features/services/domain/repositories/services_repository.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,57 +23,42 @@ class HomePage extends StatefulWidget {
   final QuotesRepository quotesRepository;
   final ServicesRepository servicesRepository;
   final bool isProvider;
-  final Future<void> Function(String pixKey)? onBecomeProvider;
+  final Future<bool> Function(String pixKey, double hourlyRate)?
+      onBecomeProvider;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _HomePageState extends State<HomePage> {
   late final QuotesHomeViewModel _viewModel;
   int _selectedTab = 0;
+  bool _showProviderBanner = true;
 
   String get _firstName {
-    final name = widget.sessionManager.session?.user.name ?? '';
-    return name.split(' ').first;
+    final name = widget.sessionManager.session?.user.name.trim() ?? '';
+    if (name.isEmpty) {
+      return 'Ana';
+    }
+    return name.split(RegExp(r'\s+')).first;
   }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _viewModel = QuotesHomeViewModel(
       quotesRepository: widget.quotesRepository,
       servicesRepository: widget.servicesRepository,
       userId: widget.sessionManager.session?.user.id,
     );
-
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) return;
-      setState(() => _selectedTab = _tabController.index);
-      switch (_tabController.index) {
-        case 0:
-          _viewModel.loadSent();
-        case 1:
-          _viewModel.loadReceived();
-        case 2:
-          _viewModel.loadRequests();
-      }
-    });
-
-    if (widget.isProvider) {
-      _viewModel.loadSent();
-    } else {
-      _viewModel.loadReceived();
-    }
+    _loadInitialTab();
   }
 
   @override
-  void didUpdateWidget(HomePage oldWidget) {
+  void didUpdateWidget(covariant HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isProvider && widget.isProvider) {
+      _selectedTab = 0;
       _viewModel.loadSent();
       _viewModel.loadRequests();
     }
@@ -79,55 +66,53 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _viewModel.dispose();
     super.dispose();
   }
 
-  Future<void> _showBecomeProviderDialog() async {
-    final controller = TextEditingController();
+  void _loadInitialTab() {
+    if (widget.isProvider) {
+      _viewModel.loadSent();
+    } else {
+      _viewModel.loadReceived();
+    }
+  }
 
-    final pixKey = await showDialog<String?>(
+  void _selectProviderTab(int index) {
+    setState(() => _selectedTab = index);
+    switch (index) {
+      case 0:
+        _viewModel.loadSent();
+      case 1:
+        _viewModel.loadReceived();
+      case 2:
+        _viewModel.loadRequests();
+    }
+  }
+
+  Future<void> _showBecomeProviderSheet() async {
+    final didBecomeProvider = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Tornar-se prestador'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Informe sua chave Pix para começar a oferecer serviços na plataforma.',
-              style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Chave Pix',
-                hintText: 'CPF, email, celular ou chave aleatória',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Confirmar'),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (context) => _BecomeProviderSheet(
+        onSubmit: widget.onBecomeProvider,
       ),
     );
 
-    controller.dispose();
-    if (pixKey != null && pixKey.isNotEmpty && mounted) {
-      await widget.onBecomeProvider?.call(pixKey);
+    if (!mounted || didBecomeProvider != true) {
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Cadastro de prestador ativado.'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
   }
 
   @override
@@ -136,16 +121,18 @@ class _HomePageState extends State<HomePage>
       return _ClientHomeView(
         firstName: _firstName,
         viewModel: _viewModel,
-        onBecomeProviderTap: _showBecomeProviderDialog,
+        quotesRepository: widget.quotesRepository,
+        showBanner: _showProviderBanner,
+        onCloseBanner: () => setState(() => _showProviderBanner = false),
+        onBecomeProviderTap: _showBecomeProviderSheet,
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -153,28 +140,37 @@ class _HomePageState extends State<HomePage>
                 child: Text(
                   'Olá, $_firstName! 👋',
                   style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Gerencie seus orçamentos',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textPrimary,
-                ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Text(
+                    'Orçamentos',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_viewModel.received.isNotEmpty)
+                    AppPill(
+                      label: '${_viewModel.received.length} nova',
+                      color: AppTheme.primary,
+                      textColor: Colors.white,
+                    ),
+                ],
               ),
-              const SizedBox(height: 12),
-              _SegmentedTabs(
+              const SizedBox(height: 10),
+              AppSegmentedControl(
                 labels: const ['Enviados', 'Recebidos', 'Solicitados'],
                 selected: _selectedTab,
-                onTap: (i) {
-                  _tabController.animateTo(i);
-                  setState(() => _selectedTab = i);
-                },
+                onTap: _selectProviderTab,
               ),
             ],
           ),
@@ -183,14 +179,14 @@ class _HomePageState extends State<HomePage>
           child: AnimatedBuilder(
             animation: _viewModel,
             builder: (context, _) {
-              return TabBarView(
-                controller: _tabController,
-                children: [
-                  _SentTab(viewModel: _viewModel),
-                  _ReceivedTab(viewModel: _viewModel),
-                  _RequestsTab(viewModel: _viewModel),
-                ],
-              );
+              return switch (_selectedTab) {
+                0 => _SentList(viewModel: _viewModel),
+                1 => _ReceivedList(
+                    viewModel: _viewModel,
+                    quotesRepository: widget.quotesRepository,
+                  ),
+                _ => _RequestsList(viewModel: _viewModel),
+              };
             },
           ),
         ),
@@ -199,213 +195,385 @@ class _HomePageState extends State<HomePage>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Client home (non-provider): banner + received proposals
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _ClientHomeView extends StatelessWidget {
   const _ClientHomeView({
     required this.firstName,
     required this.viewModel,
+    required this.quotesRepository,
+    required this.showBanner,
+    required this.onCloseBanner,
     required this.onBecomeProviderTap,
   });
 
   final String firstName;
   final QuotesHomeViewModel viewModel;
+  final QuotesRepository quotesRepository;
+  final bool showBanner;
+  final VoidCallback onCloseBanner;
   final VoidCallback onBecomeProviderTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        // "Become provider" banner
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF1E3A5F), Color(0xFF2D6A4F)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showBanner)
+              _ProviderBanner(
+                onClose: onCloseBanner,
+                onTap: onBecomeProviderTap,
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Text(
+                      'Olá, $firstName! 👋',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Text(
+                        'Orçamentos recebidos',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (viewModel.received.isNotEmpty)
+                        AppPill(
+                          label: '${viewModel.received.length} nova',
+                          color: AppTheme.primary,
+                          textColor: Colors.white,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: viewModel,
+                builder: (context, _) => _ReceivedList(
+                  viewModel: viewModel,
+                  quotesRepository: quotesRepository,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (!showBanner)
+          Positioned(
+            right: 14,
+            bottom: 16,
+            child: Tooltip(
+              message: 'Virar prestador',
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: FloatingActionButton(
+                  heroTag: 'become-provider',
+                  mini: true,
+                  elevation: 2,
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  onPressed: onBecomeProviderTap,
+                  child: const Icon(Icons.add_business_outlined, size: 20),
+                ),
+              ),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Tem um serviço para oferecer?',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Cadastre-se como prestador e comece a receber pedidos.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withAlpha(210),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                child: ElevatedButton(
-                  onPressed: onBecomeProviderTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1E3A5F),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Quero ser prestador',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Header
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Olá, $firstName!',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Orçamentos recebidos',
-                style: TextStyle(fontSize: 14, color: AppTheme.textMuted),
-              ),
-            ],
-          ),
-        ),
-
-        // Proposals list
-        Expanded(
-          child: AnimatedBuilder(
-            animation: viewModel,
-            builder: (_, __) => _ReceivedTab(viewModel: viewModel),
-          ),
-        ),
       ],
     );
   }
 }
 
-class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs({
-    required this.labels,
-    required this.selected,
+class _ProviderBanner extends StatelessWidget {
+  const _ProviderBanner({
+    required this.onClose,
     required this.onTap,
   });
 
-  final List<String> labels;
-  final int selected;
-  final void Function(int) onTap;
+  final VoidCallback onClose;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppTheme.inputFill,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.inputBorder),
-      ),
-      child: Row(
-        children: List.generate(labels.length, (i) {
-          final isSelected = i == selected;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onTap(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(20),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Center(
-                  child: Text(
-                    labels[i],
+      width: double.infinity,
+      color: AppTheme.primary,
+      padding: const EdgeInsets.fromLTRB(28, 14, 28, 14),
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 26),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tem um serviço para oferecer?',
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected
-                          ? AppTheme.textPrimary
-                          : AppTheme.textMuted,
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Cadastre-se como prestador e comece a receber pedidos.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 34,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onTap,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppTheme.primary,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      child: const Text('Quero ser prestador'),
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        }),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
+                onPressed: onClose,
+                icon: const Icon(Icons.close, color: Colors.white, size: 22),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Enviados tab (provider's sent proposals)
-// ─────────────────────────────────────────────────────────────────────────────
+class _BecomeProviderSheet extends StatefulWidget {
+  const _BecomeProviderSheet({required this.onSubmit});
 
-class _SentTab extends StatelessWidget {
-  const _SentTab({required this.viewModel});
+  final Future<bool> Function(String pixKey, double hourlyRate)? onSubmit;
+
+  @override
+  State<_BecomeProviderSheet> createState() => _BecomeProviderSheetState();
+}
+
+class _BecomeProviderSheetState extends State<_BecomeProviderSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _pixController = TextEditingController();
+  final _hourlyRateController = TextEditingController(text: '50');
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _pixController.dispose();
+    _hourlyRateController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _error = null);
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final hourlyRate = double.tryParse(
+          _hourlyRateController.text.trim().replaceAll(',', '.'),
+        ) ??
+        50;
+    final ok = await (widget.onSubmit?.call(
+          _pixController.text.trim(),
+          hourlyRate,
+        ) ??
+        Future<bool>.value(false));
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isLoading = false);
+
+    if (ok) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    setState(() {
+      _error = 'Não foi possível salvar sua chave Pix agora.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 14, 24, bottom + 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AppSheetHandle(),
+            const SizedBox(height: 24),
+            const Text(
+              'Virar prestador',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Informe sua chave Pix para cadastro de recebimento.',
+              style: TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextFormField(
+              controller: _pixController,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Chave Pix',
+                hintText: 'CPF, email, celular ou chave aleatória',
+              ),
+              validator: (value) {
+                if ((value ?? '').trim().isEmpty) {
+                  return 'Informe sua chave Pix.';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _hourlyRateController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Valor por hora',
+                prefixText: 'R\$ ',
+                hintText: '50,00',
+              ),
+              validator: (value) {
+                final hourlyRate = double.tryParse(
+                  (value ?? '').trim().replaceAll(',', '.'),
+                );
+                if (hourlyRate == null || hourlyRate <= 0) {
+                  return 'Informe um valor por hora válido.';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: const TextStyle(
+                  color: Color(0xFFB91C1C),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _submit,
+              child: _isLoading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Salvar e continuar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SentList extends StatelessWidget {
+  const _SentList({required this.viewModel});
+
   final QuotesHomeViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
     if (viewModel.sentLoading && viewModel.sent.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const Center(child: CircularProgressIndicator());
     }
     if (viewModel.sentError != null && viewModel.sent.isEmpty) {
-      return _EmptyState(message: viewModel.sentError!, onRetry: viewModel.loadSent);
+      return AppEmptyState(
+        message: viewModel.sentError!,
+        actionLabel: 'Tentar novamente',
+        onPressed: viewModel.loadSent,
+      );
     }
     if (viewModel.sent.isEmpty) {
-      return const _EmptyState(message: 'Nenhum orçamento enviado ainda.');
+      return const AppEmptyState(message: 'Nenhum orçamento enviado ainda.');
     }
 
-    return ColoredBox(
-      color: AppTheme.inputFill,
-      child: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: viewModel.loadSent,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          itemCount: viewModel.sent.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, i) => _SentCard(quote: viewModel.sent[i]),
-        ),
+    return RefreshIndicator(
+      color: AppTheme.primary,
+      onRefresh: viewModel.loadSent,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        itemCount: viewModel.sent.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _SentCard(quote: viewModel.sent[index]);
+        },
       ),
     );
   }
@@ -413,230 +581,245 @@ class _SentTab extends StatelessWidget {
 
 class _SentCard extends StatelessWidget {
   const _SentCard({required this.quote});
+
   final QuoteDto quote;
 
   @override
   Widget build(BuildContext context) {
-    return _QuoteCard(
+    return AppCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  quote.serviceName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _StatusBadge(status: quote.status),
-            ],
-          ),
-          if (quote.otherPartyName != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Row(
-                children: [
-                  const Icon(Icons.person_outline, size: 13, color: AppTheme.textMuted),
-                  const SizedBox(width: 4),
-                  Text(
-                    quote.otherPartyName!,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                  ),
-                ],
-              ),
+          Text(
+            quote.serviceName,
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
             ),
-          if (quote.estimatedHoursValue != null) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1, color: AppTheme.inputBorder),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Horas estimadas',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${quote.estimatedHoursValue}h',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 20,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                if (quote.serviceDate != null)
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today_outlined, size: 12, color: AppTheme.textMuted),
-                      const SizedBox(width: 4),
-                      Text(
-                        quote.serviceDate!,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-              ],
+          ),
+          if (quote.otherPartyName != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              quote.otherPartyName!,
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
+          const SizedBox(height: 10),
+          const Text(
+            'Valor proposto',
+            style: TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                quote.proposedValue != null
+                    ? 'R\$ ${quote.proposedValue}'
+                    : quote.estimatedHoursValue != null
+                        ? '${quote.estimatedHoursValue}h'
+                        : 'Pendente',
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              const Spacer(),
+              _StatusPill(status: quote.status),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Recebidos tab (client receives proposals / provider acts as client)
-// ─────────────────────────────────────────────────────────────────────────────
+class _ReceivedList extends StatelessWidget {
+  const _ReceivedList({
+    required this.viewModel,
+    required this.quotesRepository,
+  });
 
-class _ReceivedTab extends StatelessWidget {
-  const _ReceivedTab({required this.viewModel});
   final QuotesHomeViewModel viewModel;
+  final QuotesRepository quotesRepository;
 
   @override
   Widget build(BuildContext context) {
     if (viewModel.receivedLoading && viewModel.received.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const Center(child: CircularProgressIndicator());
     }
     if (viewModel.receivedError != null && viewModel.received.isEmpty) {
-      return _EmptyState(
+      return AppEmptyState(
         message: viewModel.receivedError!,
-        onRetry: viewModel.loadReceived,
+        actionLabel: 'Tentar novamente',
+        onPressed: viewModel.loadReceived,
       );
     }
     if (viewModel.received.isEmpty) {
-      return const _EmptyState(message: 'Nenhum orçamento recebido ainda.');
+      return const AppEmptyState(message: 'Nenhum orçamento recebido ainda.');
     }
 
-    return ColoredBox(
-      color: AppTheme.inputFill,
-      child: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: viewModel.loadReceived,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          itemCount: viewModel.received.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, i) => _ReceivedCard(
-            quote: viewModel.received[i],
+    return RefreshIndicator(
+      color: AppTheme.primary,
+      onRefresh: viewModel.loadReceived,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        itemCount: viewModel.received.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _ReceivedCard(
+            quote: viewModel.received[index],
             viewModel: viewModel,
-          ),
-        ),
+            quotesRepository: quotesRepository,
+          );
+        },
       ),
     );
   }
 }
 
 class _ReceivedCard extends StatelessWidget {
-  const _ReceivedCard({required this.quote, required this.viewModel});
+  const _ReceivedCard({
+    required this.quote,
+    required this.viewModel,
+    required this.quotesRepository,
+  });
+
   final QuoteDto quote;
   final QuotesHomeViewModel viewModel;
+  final QuotesRepository quotesRepository;
+
+  bool get _isPending {
+    final status = quote.status.toLowerCase();
+    return status == 'pending' ||
+        status == 'pendente' ||
+        status == 'negotiating' ||
+        status == 'negociando';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final statusLower = quote.status.toLowerCase();
-    final isPending = statusLower == 'pending' ||
-        statusLower == 'pendente' ||
-        statusLower == 'negotiating';
-    final canNegotiate = statusLower == 'pending' || statusLower == 'pendente';
-
-    return _QuoteCard(
+    return AppCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             quote.serviceName,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          if (quote.description != null && quote.description!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                quote.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textMuted,
-                  height: 1.4,
-                ),
+          if (quote.description != null && quote.description!.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              quote.description!,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                height: 1.35,
               ),
             ),
-          const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 14),
           const Divider(height: 1, color: AppTheme.inputBorder),
           const SizedBox(height: 12),
           const Text(
             'Valor proposto',
-            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+            style: TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           Text(
-            quote.proposedValue != null ? 'R\$ ${quote.proposedValue}' : '—',
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+            quote.proposedValue != null
+                ? 'R\$ ${quote.proposedValue}'
+                : 'R\$ --',
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              height: 1.15,
+            ),
           ),
-          if (isPending) ...[
-            const SizedBox(height: 14),
+          const SizedBox(height: 12),
+          if (_isPending)
             Row(
               children: [
                 Expanded(
-                  child: _OutlineBtn(
+                  child: AppSecondaryButton(
                     label: 'Recusar',
-                    onPressed: () => _reject(context),
+                    onPressed:
+                        viewModel.actionLoading ? null : () => _reject(context),
                   ),
                 ),
-                if (canNegotiate) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _OutlineBtn(
-                      label: 'Negociar',
-                      dark: true,
-                      onPressed: () => _negotiate(context),
-                    ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AppSecondaryButton(
+                    label: 'Negociar',
+                    dark: true,
+                    onPressed: viewModel.actionLoading
+                        ? null
+                        : () => _negotiate(context),
                   ),
-                ],
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(44),
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
                     onPressed: viewModel.actionLoading
                         ? null
-                        : () => viewModel.accept(quote.id),
+                        : () async {
+                            final ok = await viewModel.accept(quote.id);
+                            if (!context.mounted || !ok) {
+                              return;
+                            }
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PixPaymentPage(
+                                  quote: quote,
+                                  quotesRepository: quotesRepository,
+                                ),
+                              ),
+                            );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(42),
+                    ),
                     child: const Text('Aceitar'),
                   ),
                 ),
               ],
-            ),
-          ] else ...[
-            const SizedBox(height: 10),
-            _StatusBadge(status: quote.status),
-          ],
-          if (viewModel.actionError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                viewModel.actionError!,
-                style: const TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 12,
-                ),
+            )
+          else
+            _StatusPill(status: quote.status),
+          if (viewModel.actionError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              viewModel.actionError!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
+          ],
         ],
       ),
     );
@@ -645,119 +828,113 @@ class _ReceivedCard extends StatelessWidget {
   Future<void> _reject(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         title: const Text('Recusar orçamento'),
         content: const Text('Confirma a recusa deste orçamento?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Recusar'),
           ),
         ],
       ),
     );
-    if (confirmed == true) viewModel.reject(quote.id);
+
+    if (confirmed == true) {
+      viewModel.reject(quote.id);
+    }
   }
 
   Future<void> _negotiate(BuildContext context) async {
     final controller = TextEditingController();
     final submitted = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         title: const Text('Negociar orçamento'),
         content: TextField(
           controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          minLines: 3,
+          maxLines: 5,
           decoration: const InputDecoration(
-            labelText: 'Sua contraproposta (R\$)',
-            hintText: '0,00',
+            hintText: 'Escreva sua contraproposta ou dúvida.',
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Enviar'),
           ),
         ],
       ),
     );
-    final counterProposalText = controller.text.trim();
+    final reason = controller.text.trim();
     controller.dispose();
+
     if (submitted == true) {
-      viewModel.negotiate(quote.id, counterProposal: counterProposalText);
+      viewModel.negotiate(
+        quote.id,
+        counterProposal: reason.isEmpty ? null : reason,
+      );
     }
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Solicitados tab (provider sees client requests + responds with price)
-// ─────────────────────────────────────────────────────────────────────────────
+class _RequestsList extends StatelessWidget {
+  const _RequestsList({required this.viewModel});
 
-class _RequestsTab extends StatelessWidget {
-  const _RequestsTab({required this.viewModel});
   final QuotesHomeViewModel viewModel;
 
   @override
   Widget build(BuildContext context) {
     if (viewModel.requestsLoading && viewModel.requests.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const Center(child: CircularProgressIndicator());
     }
     if (viewModel.requestsError != null && viewModel.requests.isEmpty) {
-      return _EmptyState(
+      return AppEmptyState(
         message: viewModel.requestsError!,
-        onRetry: viewModel.loadRequests,
+        actionLabel: 'Tentar novamente',
+        onPressed: viewModel.loadRequests,
       );
     }
     if (viewModel.requests.isEmpty) {
-      return ColoredBox(
-        color: AppTheme.inputFill,
-        child: RefreshIndicator(
-          color: AppTheme.primary,
-          onRefresh: viewModel.loadRequests,
-          child: ListView(
-            children: [
-              _EmptyState(
-                message: 'Nenhuma solicitação recebida ainda.',
-                onRetry: viewModel.loadRequests,
-              ),
-            ],
-          ),
-        ),
-      );
+      return const AppEmptyState(
+          message: 'Nenhuma solicitação recebida ainda.');
     }
 
-    return ColoredBox(
-      color: AppTheme.inputFill,
-      child: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: viewModel.loadRequests,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          itemCount: viewModel.requests.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (_, i) => _RequestCard(
-            quote: viewModel.requests[i],
+    return RefreshIndicator(
+      color: AppTheme.primary,
+      onRefresh: viewModel.loadRequests,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        itemCount: viewModel.requests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _RequestCard(
+            quote: viewModel.requests[index],
             viewModel: viewModel,
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 class _RequestCard extends StatefulWidget {
-  const _RequestCard({required this.quote, required this.viewModel});
+  const _RequestCard({
+    required this.quote,
+    required this.viewModel,
+  });
+
   final QuoteDto quote;
   final QuotesHomeViewModel viewModel;
 
@@ -778,31 +955,28 @@ class _RequestCardState extends State<_RequestCard> {
     final value = _priceController.text.trim();
     if (value.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe o valor proposto.')),
+        const SnackBar(content: Text('Informe as horas estimadas.')),
       );
       return;
     }
+
     final ok = await widget.viewModel.respond(widget.quote.id, value);
     if (ok && mounted) {
       _priceController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Orçamento enviado!'),
-          backgroundColor: Colors.green,
+          content: Text('Orçamento enviado.'),
+          backgroundColor: Color(0xFF16A34A),
         ),
       );
     }
   }
 
-  Future<void> _reject() async {
-    await widget.viewModel.cancelRequest(widget.quote.id);
-  }
-
   @override
   Widget build(BuildContext context) {
     final quote = widget.quote;
-
-    return _QuoteCard(
+    return AppCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -810,65 +984,77 @@ class _RequestCardState extends State<_RequestCard> {
             Text(
               quote.otherPartyName!,
               style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
                 color: AppTheme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
           Text(
             quote.serviceName,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          if (quote.createdAt.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                quote.createdAt,
-                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+          if (quote.createdAt.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              quote.createdAt,
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ],
           if (quote.description != null && quote.description!.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               quote.description!,
               style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textPrimary,
-                height: 1.4,
+                color: AppTheme.textMuted,
+                fontSize: 12,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
           if (quote.photos.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 64,
+              height: 70,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: quote.photos.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 6),
-                itemBuilder: (_, i) => ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    quote.photos[i],
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 64,
-                      height: 64,
-                      color: const Color(0xFFE5E7EB),
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      quote.photos[index],
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 70,
+                        height: 70,
+                        color: const Color(0xFFD9D9D9),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ],
           const SizedBox(height: 14),
-          const Divider(height: 1, color: AppTheme.inputBorder),
-          const SizedBox(height: 14),
           const Text(
             'Horas estimadas',
-            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+            style: TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           TextFormField(
@@ -883,21 +1069,20 @@ class _RequestCardState extends State<_RequestCard> {
           Row(
             children: [
               Expanded(
-                child: _OutlineBtn(
+                child: AppSecondaryButton(
                   label: 'Recusar',
-                  onPressed: widget.viewModel.actionLoading ? null : _reject,
+                  onPressed: widget.viewModel.actionLoading
+                      ? null
+                      : () => widget.viewModel.cancelRequest(quote.id),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                   onPressed: widget.viewModel.actionLoading ? null : _send,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(42),
+                  ),
                   child: widget.viewModel.actionLoading
                       ? const SizedBox.square(
                           dimension: 18,
@@ -911,150 +1096,55 @@ class _RequestCardState extends State<_RequestCard> {
               ),
             ],
           ),
-          if (widget.viewModel.actionError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                widget.viewModel.actionError!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          if (widget.viewModel.actionError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              widget.viewModel.actionError!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
+          ],
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared widgets
-// ─────────────────────────────────────────────────────────────────────────────
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status});
 
-class _QuoteCard extends StatelessWidget {
-  const _QuoteCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppTheme.inputBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: child,
-      ),
-    );
-  }
-}
-
-class _OutlineBtn extends StatelessWidget {
-  const _OutlineBtn({
-    required this.label,
-    required this.onPressed,
-    this.dark = false,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(44),
-        foregroundColor: dark ? AppTheme.textPrimary : AppTheme.textMuted,
-        side: BorderSide(
-          color: dark ? AppTheme.textPrimary : const Color(0xFFD1D5DB),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      onPressed: onPressed,
-      child: Text(label),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
   final String status;
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (status.toLowerCase()) {
+    final normalized = status.toLowerCase();
+    final label = switch (normalized) {
       'accepted' || 'aceito' => 'Aceito',
       'rejected' || 'recusado' => 'Recusado',
       'negotiating' || 'negociando' => 'Negociando',
-      'awaiting_payment' => 'Ag. Pagamento',
+      'awaiting_payment' => 'Ag. pagamento',
       'provider_confirmed' => 'Em execução',
-      'completed' || 'concluido' => 'Concluído',
+      'completed' || 'concluido' || 'concluído' => 'Concluído',
       'cancelled' || 'cancelado' => 'Cancelado',
       _ => 'Pendente',
     };
-    final color = switch (status.toLowerCase()) {
-      'accepted' || 'aceito' => const Color(0xFF16A34A),
+    final color = switch (normalized) {
+      'accepted' || 'aceito' => AppTheme.primary,
       'rejected' || 'recusado' => const Color(0xFFDC2626),
-      'negotiating' || 'negociando' => const Color(0xFFD97706),
-      'awaiting_payment' => const Color(0xFF7C3AED),
-      'provider_confirmed' => const Color(0xFF2563EB),
-      'completed' || 'concluido' => const Color(0xFF16A34A),
-      'cancelled' || 'cancelado' => const Color(0xFFDC2626),
-      _ => const Color(0xFF6B7280),
+      'negotiating' || 'negociando' => const Color(0xFF111827),
+      'completed' || 'concluido' || 'concluído' => const Color(0xFF16A34A),
+      _ => const Color(0xFFBFC5CF),
     };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withAlpha(26),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message, this.onRetry});
-
-  final String message;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: onRetry,
-                child: const Text('Tentar novamente'),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return AppPill(
+      label: label,
+      color: color,
+      textColor: normalized == 'pending' || normalized == 'pendente'
+          ? AppTheme.textPrimary
+          : Colors.white,
     );
   }
 }

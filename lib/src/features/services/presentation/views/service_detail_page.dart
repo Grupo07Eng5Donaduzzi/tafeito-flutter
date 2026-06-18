@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_ui.dart';
 import '../../data/models/service_dto.dart';
 
 class ServiceDetailPage extends StatelessWidget {
@@ -15,53 +16,53 @@ class ServiceDetailPage extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 260,
+            expandedHeight: 245,
             pinned: true,
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
-            leading: Padding(
-              padding: const EdgeInsets.all(8),
-              child: CircleAvatar(
-                backgroundColor: Colors.black38,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+            leadingWidth: 86,
+            leading: TextButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back, size: 18),
+              label: const Text('Voltar'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.textPrimary,
+                padding: const EdgeInsets.only(left: 8),
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: service.imageUrl != null
-                  ? Image.network(
-                      service.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFE5E7EB),
-                      ),
-                    )
-                  : Container(color: const Color(0xFFE5E7EB)),
+              background: _HeroImage(url: service.imageUrl),
             ),
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 104),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate(
+                [
                   if (service.providerName != null) ...[
                     Row(
                       children: [
-                        const CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Color(0xFFE5E7EB),
-                          child: Icon(Icons.person, size: 18, color: Color(0xFF9CA3AF)),
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: const Color(0xFFE5E7EB),
+                          child: Text(
+                            service.providerName!.isEmpty
+                                ? '?'
+                                : service.providerName![0].toUpperCase(),
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           service.providerName!,
                           style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -71,48 +72,110 @@ class ServiceDetailPage extends StatelessWidget {
                   Text(
                     service.name,
                     style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
                       color: AppTheme.textPrimary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                   if (service.description.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Text(
                       service.description,
                       style: const TextStyle(
-                        fontSize: 14,
                         color: AppTheme.textMuted,
-                        height: 1.5,
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
-                  if (service.rating != null) ...[
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Text(
-                          'Avaliacoes',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  const SizedBox(height: 18),
+                  const Divider(height: 1, color: AppTheme.inputBorder),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Text(
+                        'Avaliações',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.star, size: 16, color: Color(0xFFF59E0B)),
-                        const SizedBox(width: 4),
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.star,
+                        color: Color(0xFFF6C515),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        service.rating ?? '5.0',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (service.reviewCount != null)
                         Text(
-                          service.rating!,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        if (service.reviewCount != null)
-                          Text(
-                            ' (${service.reviewCount})',
-                            style: const TextStyle(color: AppTheme.textMuted),
+                          ' (${service.reviewCount})',
+                          style: const TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const AppCard(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.star,
+                              color: Color(0xFFF6C515),
+                              size: 15,
+                            ),
+                            Icon(
+                              Icons.star,
+                              color: Color(0xFFF6C515),
+                              size: 15,
+                            ),
+                            Icon(
+                              Icons.star,
+                              color: Color(0xFFF6C515),
+                              size: 15,
+                            ),
+                            Icon(
+                              Icons.star,
+                              color: Color(0xFFF6C515),
+                              size: 15,
+                            ),
+                            Icon(
+                              Icons.star,
+                              color: Color(0xFFF6C515),
+                              size: 15,
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Excelente profissional! Muito caprichoso e dedicado no plantio das flores e plantas. O serviço ficou lindo, organizado e deu outra vida ao jardim.',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -124,6 +187,25 @@ class ServiceDetailPage extends StatelessWidget {
   }
 }
 
+class _HeroImage extends StatelessWidget {
+  const _HeroImage({required this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url == null || url!.isEmpty) {
+      return Container(color: const Color(0xFFD9DDE2));
+    }
+
+    return Image.network(
+      url!,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(color: const Color(0xFFD9DDE2)),
+    );
+  }
+}
+
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.service});
 
@@ -131,40 +213,68 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppTheme.inputBorder)),
-      ),
-      child: Row(
-        children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'a partir de',
-                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppTheme.inputBorder)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'a partir de',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'R\$ ${service.price}',
+                          style: const TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '/${service.unit ?? "dia"}',
+                          style: const TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                'R\$ ${service.price}/${service.unit ?? "dia"}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () => Navigator.of(context).pop('request_quote'),
-              child: const Text('Orcamento'),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 128,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop('request_quote'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: const Text('Orçamento'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -19,17 +19,14 @@ class QuotesHomeViewModel extends ChangeNotifier {
   final ServicesRepository? _servicesRepository;
   final String? _userId;
 
-  // Solicitados – available budget requests (provider sees client requests)
   List<QuoteDto> _requests = const [];
   bool _requestsLoading = false;
   String? _requestsError;
 
-  // Recebidos – client's received proposals from providers
   List<QuoteDto> _received = const [];
   bool _receivedLoading = false;
   String? _receivedError;
 
-  // Enviados – provider's sent proposals
   List<QuoteDto> _sent = const [];
   bool _sentLoading = false;
   String? _sentError;
@@ -52,8 +49,6 @@ class QuotesHomeViewModel extends ChangeNotifier {
   String? get actionError => _actionError;
   bool get actionLoading => _actionLoading;
 
-  // ─── Loaders ───────────────────────────────────────────────────────────────
-
   Future<void> loadRequests() async {
     _requestsLoading = true;
     _requestsError = null;
@@ -61,7 +56,6 @@ class QuotesHomeViewModel extends ChangeNotifier {
 
     final servicesRepo = _servicesRepository;
     final userId = _userId;
-
     if (servicesRepo == null || userId == null || userId.isEmpty) {
       _requestsError = 'Configure seus serviços para ver solicitações.';
       _requestsLoading = false;
@@ -70,31 +64,32 @@ class QuotesHomeViewModel extends ChangeNotifier {
     }
 
     final servicesResult = await servicesRepo.findMine(userId: userId);
-    if (servicesResult is Failure<List>) {
-      _requestsError = 'Não foi possível carregar seus serviços.';
-      _requestsLoading = false;
-      notifyListeners();
-      return;
-    }
+    switch (servicesResult) {
+      case Failure():
+        _requestsError = 'Não foi possível carregar seus serviços.';
+        _requestsLoading = false;
+        notifyListeners();
+        return;
+      case Success(:final data):
+        if (data.isEmpty) {
+          _requestsError =
+              'Cadastre um serviço em Serviços > Oferecer para receber solicitações.';
+          _requestsLoading = false;
+          notifyListeners();
+          return;
+        }
 
-    final services = (servicesResult as Success).data;
-    if (services.isEmpty) {
-      _requestsError = 'Você não tem serviços cadastrados. Cadastre um serviço em Serviços > Oferecer para receber solicitações.';
-      _requestsLoading = false;
-      notifyListeners();
-      return;
+        final allRequests = <QuoteDto>[];
+        for (final service in data) {
+          final result = await _quotesRepository.findAvailableRequests(
+            serviceId: service.id,
+          );
+          if (result case Success<List<QuoteDto>>(:final data)) {
+            allRequests.addAll(data);
+          }
+        }
+        _requests = allRequests;
     }
-
-    final allRequests = <QuoteDto>[];
-    for (final service in services) {
-      final result = await _quotesRepository.findAvailableRequests(
-        serviceId: service.id,
-      );
-      if (result is Success<List<QuoteDto>>) {
-        allRequests.addAll(result.data);
-      }
-    }
-    _requests = allRequests;
 
     _requestsLoading = false;
     notifyListeners();
@@ -134,15 +129,10 @@ class QuotesHomeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─── Actions ───────────────────────────────────────────────────────────────
-
-  // Provider sends proposal (estimatedHours as string from text field)
-  Future<bool> respond(String requestId, String estimatedHoursStr) async {
-    final hours = double.tryParse(
-      estimatedHoursStr.replaceAll(',', '.'),
-    );
-    if (hours == null || hours <= 0) {
-      _actionError = 'Informe um número de horas válido.';
+  Future<bool> respond(String requestId, String amountText) async {
+    final amount = double.tryParse(amountText.replaceAll(',', '.'));
+    if (amount == null || amount <= 0) {
+      _actionError = 'Informe um valor válido.';
       notifyListeners();
       return false;
     }
@@ -152,11 +142,10 @@ class QuotesHomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     final result = await _quotesRepository.createProposal(
-      CreateProposalRequest(requestId: requestId, estimatedHours: hours),
+      CreateProposalRequest(requestId: requestId, estimatedHours: amount),
     );
 
     _actionLoading = false;
-
     switch (result) {
       case Success():
         await loadRequests();
@@ -177,10 +166,10 @@ class QuotesHomeViewModel extends ChangeNotifier {
     final result = await _quotesRepository.cancelRequest(requestId);
 
     _actionLoading = false;
-
     switch (result) {
       case Success():
-        _requests.removeWhere((q) => q.id == requestId);
+        _requests = List.of(_requests)
+          ..removeWhere((quote) => quote.id == requestId);
         notifyListeners();
         return true;
       case Failure(:final message):
@@ -190,21 +179,21 @@ class QuotesHomeViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> accept(String proposalId) async {
+  Future<bool> accept(String proposalId) {
     return _updateReceived(
       proposalId,
       () => _quotesRepository.acceptProposal(proposalId),
     );
   }
 
-  Future<bool> reject(String proposalId) async {
+  Future<bool> reject(String proposalId) {
     return _updateReceived(
       proposalId,
       () => _quotesRepository.rejectProposal(proposalId),
     );
   }
 
-  Future<bool> negotiate(String proposalId, {String? counterProposal}) async {
+  Future<bool> negotiate(String proposalId, {String? counterProposal}) {
     return _updateReceived(
       proposalId,
       () => _quotesRepository.contestProposal(
@@ -225,15 +214,11 @@ class QuotesHomeViewModel extends ChangeNotifier {
     final result = await action();
 
     _actionLoading = false;
-
     switch (result) {
       case Success(:final data):
-        final idx = _received.indexWhere((q) => q.id == proposalId);
-        if (idx != -1) {
-          final existing = _received[idx];
-          // When API returns 204 (reject/contest), the datasource returns a
-          // synthetic DTO with the correct id but empty serviceName.
-          // Merge: preserve display fields, only update status.
+        final index = _received.indexWhere((quote) => quote.id == proposalId);
+        if (index != -1) {
+          final existing = _received[index];
           final updated = data.serviceName.isEmpty
               ? QuoteDto(
                   id: existing.id,
@@ -247,9 +232,13 @@ class QuotesHomeViewModel extends ChangeNotifier {
                   serviceDate: existing.serviceDate,
                   location: existing.location,
                   photos: existing.photos,
+                  paymentId: data.paymentId ?? existing.paymentId,
+                  qrCode: data.qrCode ?? existing.qrCode,
+                  qrCodeBase64: data.qrCodeBase64 ?? existing.qrCodeBase64,
+                  ticketUrl: data.ticketUrl ?? existing.ticketUrl,
                 )
               : data;
-          _received = List.of(_received)..[idx] = updated;
+          _received = List.of(_received)..[index] = updated;
         }
         notifyListeners();
         return true;

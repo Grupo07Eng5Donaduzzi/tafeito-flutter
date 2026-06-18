@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/result/result.dart';
 import '../../data/models/create_quote_request.dart';
 import '../../domain/repositories/quotes_repository.dart';
@@ -40,21 +41,26 @@ class CreateQuoteViewModel extends ChangeNotifier {
   }
 
   void addPhoto(Uint8List bytes) {
-    if (photos.length >= 5) return;
+    if (photos.length >= 5) {
+      return;
+    }
     photos.add(bytes);
     notifyListeners();
   }
 
   void removePhoto(int index) {
-    if (index < photos.length) {
-      photos.removeAt(index);
-      notifyListeners();
+    if (index < 0 || index >= photos.length) {
+      return;
     }
+    photos.removeAt(index);
+    notifyListeners();
   }
 
   String? validate() {
     if (titleController.text.trim().isEmpty) return 'Informe um título.';
-    if (descriptionController.text.trim().isEmpty) return 'Descreva o que você precisa.';
+    if (descriptionController.text.trim().isEmpty) {
+      return 'Descreva o que você precisa.';
+    }
     if (locationController.text.trim().isEmpty) return 'Informe a localização.';
     if (_selectedDate == null) return 'Informe a data do serviço.';
     return null;
@@ -72,22 +78,38 @@ class CreateQuoteViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final isoDate = _selectedDate!.toIso8601String().substring(0, 10);
-
     final request = CreateQuoteRequest(
       serviceId: serviceId,
       title: titleController.text.trim(),
       description: descriptionController.text.trim(),
       category: serviceCategory,
       location: locationController.text.trim(),
-      requestDate: isoDate,
+      requestDate: _selectedDate!.toIso8601String(),
     );
 
     final result = await _quotesRepository.createRequest(request);
 
     _isLoading = false;
     switch (result) {
-      case Success():
+      case Success(:final data):
+        if (photos.isNotEmpty) {
+          final uploadResult = await _quotesRepository.uploadRequestPhotos(
+            requestId: data.id,
+            photos: [
+              for (var index = 0; index < photos.length; index++)
+                MultipartFilePayload(
+                  fieldName: 'photos',
+                  fileName: 'orcamento-${index + 1}.jpg',
+                  bytes: photos[index],
+                ),
+            ],
+          );
+          if (uploadResult case Failure(:final message)) {
+            _errorMessage = message;
+            notifyListeners();
+            return false;
+          }
+        }
         notifyListeners();
         return true;
       case Failure(:final message):

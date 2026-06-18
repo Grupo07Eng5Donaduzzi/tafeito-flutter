@@ -20,5 +20,14 @@ class CreateServiceRequest {
         'description': description,
         'category': category,
         'price': price,
+        'pricingType': _pricingTypeFromUnit(duration),
       };
+}
+
+String _pricingTypeFromUnit(String unit) {
+  return switch (unit.toLowerCase()) {
+    'hora' => 'HOURLY',
+    'mes' || 'mês' => 'MONTHLY',
+    _ => 'DAILY',
+  };
 }

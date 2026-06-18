@@ -1,15 +1,21 @@
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_paths.dart';
 import '../models/create_quote_request.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
 abstract interface class QuotesRemoteDataSource {
   Future<QuoteDto> createRequest(CreateQuoteRequest request);
+  Future<QuoteDto> uploadRequestPhotos({
+    required String requestId,
+    required List<MultipartFilePayload> photos,
+  });
   Future<List<QuoteDto>> findAvailableRequests({required String serviceId});
   Future<QuoteDto> createProposal(CreateProposalRequest request);
   Future<List<QuoteDto>> findProviderProposals();
   Future<List<QuoteDto>> findClientProposals();
   Future<QuoteDto> acceptProposal(String proposalId);
+  Future<PaymentCheckDto> checkPayment(String proposalId);
   Future<QuoteDto> rejectProposal(String proposalId, {String? reason});
   Future<QuoteDto> contestProposal(String proposalId, String reason);
   Future<void> cancelRequest(String requestId);
@@ -24,16 +30,29 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
   @override
   Future<QuoteDto> createRequest(CreateQuoteRequest request) async {
     final response = await _apiClient.post(
-      '/v1/budgetRequests',
+      ApiPaths.budgetRequests,
       body: request.toJson(),
     );
     return QuoteDto.fromBudgetRequest(asJsonObject(unwrapJsonData(response)));
   }
 
   @override
-  Future<List<QuoteDto>> findAvailableRequests({required String serviceId}) async {
+  Future<QuoteDto> uploadRequestPhotos({
+    required String requestId,
+    required List<MultipartFilePayload> photos,
+  }) async {
+    final response = await _apiClient.multipartPost(
+      ApiPaths.budgetRequestPhotos(requestId),
+      files: photos,
+    );
+    return QuoteDto.fromBudgetRequest(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<List<QuoteDto>> findAvailableRequests(
+      {required String serviceId}) async {
     final response = await _apiClient.get(
-      '/v1/budgetRequests/available',
+      ApiPaths.availableBudgetRequests,
       queryParameters: {'service_id': serviceId},
     );
     return _extractBudgetRequests(response);
@@ -42,7 +61,7 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
   @override
   Future<QuoteDto> createProposal(CreateProposalRequest request) async {
     final response = await _apiClient.post(
-      '/v1/proposals',
+      ApiPaths.proposals,
       body: request.toJson(),
     );
     return QuoteDto.fromProposal(asJsonObject(unwrapJsonData(response)));
@@ -50,20 +69,26 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
 
   @override
   Future<List<QuoteDto>> findProviderProposals() async {
-    final response = await _apiClient.get('/v1/proposals/provider/created');
+    final response = await _apiClient.get(ApiPaths.providerProposals);
     return _extractProposals(response);
   }
 
   @override
   Future<List<QuoteDto>> findClientProposals() async {
-    final response = await _apiClient.get('/v1/proposals/client/requested');
+    final response = await _apiClient.get(ApiPaths.clientProposals);
     return _extractProposals(response);
   }
 
   @override
   Future<QuoteDto> acceptProposal(String proposalId) async {
-    final response = await _apiClient.post('/v1/proposals/$proposalId/accept');
+    final response = await _apiClient.post(ApiPaths.acceptProposal(proposalId));
     return QuoteDto.fromProposal(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<PaymentCheckDto> checkPayment(String proposalId) async {
+    final response = await _apiClient.get(ApiPaths.proposalPayment(proposalId));
+    return PaymentCheckDto.fromJson(asJsonObject(unwrapJsonData(response)));
   }
 
   @override
@@ -72,24 +97,26 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
       if (reason != null && reason.isNotEmpty) 'reason': reason,
     };
     // API returns 204 No Content — build synthetic DTO with new status
-    await _apiClient.patch('/v1/proposals/$proposalId/reject', body: body);
-    return QuoteDto(id: proposalId, serviceName: '', status: 'REJECTED', createdAt: '');
+    await _apiClient.patch(ApiPaths.rejectProposal(proposalId), body: body);
+    return QuoteDto(
+        id: proposalId, serviceName: '', status: 'REJECTED', createdAt: '');
   }
 
   @override
   Future<QuoteDto> contestProposal(String proposalId, String reason) async {
     // API returns 204 No Content — build synthetic DTO with new status
     await _apiClient.patch(
-      '/v1/proposals/$proposalId/contest',
+      ApiPaths.contestProposal(proposalId),
       body: {'reason': reason},
     );
-    return QuoteDto(id: proposalId, serviceName: '', status: 'NEGOTIATING', createdAt: '');
+    return QuoteDto(
+        id: proposalId, serviceName: '', status: 'NEGOTIATING', createdAt: '');
   }
 
   @override
   Future<void> cancelRequest(String requestId) async {
     await _apiClient.patch(
-      '/v1/budgetRequests/$requestId/cancel',
+      ApiPaths.cancelBudgetRequest(requestId),
       body: {'reason': 'Cancelado pelo prestador'},
     );
   }

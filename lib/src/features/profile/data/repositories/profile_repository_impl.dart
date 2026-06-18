@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../../core/result/result.dart';
 import '../../data/datasources/profile_remote_data_source.dart';
 import '../../data/models/update_user_request.dart';
@@ -15,7 +17,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
       final user = await remoteDataSource.getMe();
       return Success(user);
     } on Exception {
-      return const Failure('Nao foi possivel carregar seu perfil agora.');
+      return const Failure('Não foi possível carregar seu perfil agora.');
     }
   }
 
@@ -28,7 +30,41 @@ class ProfileRepositoryImpl implements ProfileRepository {
       final user = await remoteDataSource.update(id: id, request: request);
       return Success(user);
     } on Exception {
-      return const Failure('Nao foi possivel salvar suas alteracoes agora.');
+      return const Failure('Não foi possível salvar suas alterações agora.');
+    }
+  }
+
+  @override
+  Future<Result<UserDto>> becomeProvider({
+    required String pixKey,
+    required double hourlyRate,
+  }) async {
+    try {
+      final user = await remoteDataSource.becomeProvider(
+        pixKey: pixKey,
+        hourlyRate: hourlyRate,
+      );
+      return Success(user);
+    } on Exception {
+      return const Failure(
+        'Não foi possível ativar seu cadastro de prestador.',
+      );
+    }
+  }
+
+  @override
+  Future<Result<UserDto>> uploadAvatar({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    try {
+      final user = await remoteDataSource.uploadAvatar(
+        bytes: bytes,
+        fileName: fileName,
+      );
+      return Success(user);
+    } on Exception {
+      return const Failure('Não foi possível enviar sua foto agora.');
     }
   }
 }

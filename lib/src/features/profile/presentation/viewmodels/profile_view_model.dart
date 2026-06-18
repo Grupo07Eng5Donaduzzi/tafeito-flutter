@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/result/result.dart';
@@ -38,10 +40,7 @@ class ProfileViewModel extends ChangeNotifier {
     final result = await _profileRepository.getMe();
     switch (result) {
       case Success(:final data):
-        _me = data;
-        nameController.text = data.name;
-        emailController.text = data.email;
-        pixKeyController.text = data.pixKey ?? '';
+        _applyUser(data);
       case Failure(:final message):
         _errorMessage = message;
     }
@@ -56,7 +55,6 @@ class ProfileViewModel extends ChangeNotifier {
     _errorMessage = null;
 
     final pixKey = pixKeyController.text.trim();
-
     final result = await _profileRepository.update(
       id: _me!.id,
       request: UpdateUserRequest(
@@ -68,15 +66,40 @@ class ProfileViewModel extends ChangeNotifier {
 
     switch (result) {
       case Success(:final data):
-        _me = data;
-        nameController.text = data.name;
-        emailController.text = data.email;
-        pixKeyController.text = data.pixKey ?? '';
+        _applyUser(data);
       case Failure(:final message):
         _errorMessage = message;
     }
 
     _setLoading(false);
+  }
+
+  Future<void> uploadAvatar({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    _setLoading(true);
+    _errorMessage = null;
+
+    final result = await _profileRepository.uploadAvatar(
+      bytes: bytes,
+      fileName: fileName,
+    );
+    switch (result) {
+      case Success(:final data):
+        _applyUser(data);
+      case Failure(:final message):
+        _errorMessage = message;
+    }
+
+    _setLoading(false);
+  }
+
+  void _applyUser(UserDto user) {
+    _me = user;
+    nameController.text = user.name;
+    emailController.text = user.email;
+    pixKeyController.text = user.pixKey ?? '';
   }
 
   void _setLoading(bool value) {

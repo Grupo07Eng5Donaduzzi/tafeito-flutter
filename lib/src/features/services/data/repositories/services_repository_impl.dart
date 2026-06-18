@@ -1,4 +1,5 @@
 import '../../../../core/result/result.dart';
+import '../../../../core/network/api_client.dart';
 import '../../domain/repositories/services_repository.dart';
 import '../datasources/services_remote_data_source.dart';
 import '../models/create_service_request.dart';
@@ -51,6 +52,19 @@ class ServicesRepositoryImpl implements ServicesRepository {
       return Success(service);
     } on Exception catch (e) {
       return Failure(_messageFrom(e, 'Nao foi possivel atualizar o servico.'));
+    }
+  }
+
+  @override
+  Future<Result<ServiceDto>> uploadPhoto({
+    required String id,
+    required MultipartFilePayload photo,
+  }) async {
+    try {
+      final service = await _remoteDataSource.uploadPhoto(id: id, photo: photo);
+      return Success(service);
+    } on Exception catch (e) {
+      return Failure(_messageFrom(e, 'Não foi possível enviar a foto.'));
     }
   }
 

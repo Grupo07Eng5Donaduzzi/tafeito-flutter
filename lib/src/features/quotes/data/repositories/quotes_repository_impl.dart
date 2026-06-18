@@ -1,3 +1,4 @@
+import '../../../../core/network/api_client.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/repositories/quotes_repository.dart';
 import '../datasources/quotes_remote_data_source.dart';
@@ -16,8 +17,23 @@ class QuotesRepositoryImpl implements QuotesRepository {
       _run(() => _remoteDataSource.createRequest(request));
 
   @override
-  Future<Result<List<QuoteDto>>> findAvailableRequests({required String serviceId}) =>
-      _runList(() => _remoteDataSource.findAvailableRequests(serviceId: serviceId));
+  Future<Result<QuoteDto>> uploadRequestPhotos({
+    required String requestId,
+    required List<MultipartFilePayload> photos,
+  }) {
+    return _run(
+      () => _remoteDataSource.uploadRequestPhotos(
+        requestId: requestId,
+        photos: photos,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<List<QuoteDto>>> findAvailableRequests(
+          {required String serviceId}) =>
+      _runList(
+          () => _remoteDataSource.findAvailableRequests(serviceId: serviceId));
 
   @override
   Future<Result<QuoteDto>> createProposal(CreateProposalRequest request) =>
@@ -34,6 +50,10 @@ class QuotesRepositoryImpl implements QuotesRepository {
   @override
   Future<Result<QuoteDto>> acceptProposal(String proposalId) =>
       _run(() => _remoteDataSource.acceptProposal(proposalId));
+
+  @override
+  Future<Result<PaymentCheckDto>> checkPayment(String proposalId) =>
+      _run(() => _remoteDataSource.checkPayment(proposalId));
 
   @override
   Future<Result<QuoteDto>> rejectProposal(

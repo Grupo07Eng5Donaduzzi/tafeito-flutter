@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_paths.dart';
 import '../models/password_recovery_code_request.dart';
 import '../models/password_recovery_email_request.dart';
 import '../models/password_reset_request.dart';
@@ -25,7 +26,7 @@ class ApiPasswordRecoveryRemoteDataSource
     PasswordRecoveryEmailRequest request,
   ) async {
     await _apiClient.post(
-      '/auth/password-recovery/request',
+      ApiPaths.passwordRecoveryRequest,
       body: request.toJson(),
     );
   }
@@ -35,7 +36,7 @@ class ApiPasswordRecoveryRemoteDataSource
     PasswordRecoveryCodeRequest request,
   ) async {
     await _apiClient.post(
-      '/auth/password-recovery/verify',
+      ApiPaths.passwordRecoveryVerify,
       body: request.toJson(),
     );
   }
@@ -43,7 +44,7 @@ class ApiPasswordRecoveryRemoteDataSource
   @override
   Future<void> confirmPasswordReset(PasswordResetRequest request) async {
     await _apiClient.post(
-      '/auth/password-recovery/reset',
+      ApiPaths.passwordRecoveryReset,
       body: request.toJson(),
     );
   }

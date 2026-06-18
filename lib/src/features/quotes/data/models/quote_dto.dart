@@ -11,6 +11,10 @@ class QuoteDto {
     this.serviceDate,
     this.location,
     this.photos = const [],
+    this.paymentId,
+    this.qrCode,
+    this.qrCodeBase64,
+    this.ticketUrl,
   });
 
   final String id;
@@ -19,11 +23,15 @@ class QuoteDto {
   final String createdAt;
   final String? otherPartyName;
   final String? description;
-  final String? proposedValue;      // monetary amount (R$)
+  final String? proposedValue; // monetary amount (R$)
   final String? estimatedHoursValue; // estimated hours (for provider view)
   final String? serviceDate;
   final String? location;
   final List<String> photos;
+  final String? paymentId;
+  final String? qrCode;
+  final String? qrCodeBase64;
+  final String? ticketUrl;
 
   // From BudgetRequestDto (budget-requests endpoints)
   factory QuoteDto.fromBudgetRequest(Map<String, Object?> json) {
@@ -102,6 +110,63 @@ class QuoteDto {
       estimatedHoursValue: estimatedHoursValue,
       otherPartyName: otherPartyName,
       description: description,
+      paymentId: _emptyToNull(json['paymentId']),
+      qrCode: _emptyToNull(json['qrCode']),
+      qrCodeBase64: _emptyToNull(json['qrCodeBase64']),
+      ticketUrl: _emptyToNull(json['ticketUrl']),
     );
   }
+}
+
+class PaymentCheckDto {
+  const PaymentCheckDto({
+    required this.paid,
+    required this.status,
+    required this.proposal,
+    this.paymentId,
+    this.qrCode,
+    this.qrCodeBase64,
+    this.ticketUrl,
+  });
+
+  final bool paid;
+  final String status;
+  final QuoteDto proposal;
+  final String? paymentId;
+  final String? qrCode;
+  final String? qrCodeBase64;
+  final String? ticketUrl;
+
+  factory PaymentCheckDto.fromJson(Map<String, Object?> json) {
+    final proposalJson = json['proposal'];
+    final proposal = proposalJson is Map
+        ? QuoteDto.fromProposal(
+            proposalJson.map((key, value) => MapEntry(key.toString(), value)),
+          )
+        : QuoteDto(
+            id: '',
+            serviceName: 'Pagamento',
+            status: json['status']?.toString() ?? '',
+            createdAt: '',
+          );
+
+    return PaymentCheckDto(
+      paid: json['paid'] == true,
+      status: json['status']?.toString() ?? '',
+      proposal: proposal,
+      paymentId: _emptyToNull(json['paymentId']),
+      qrCode: _emptyToNull(json['qrCode']),
+      qrCodeBase64: _emptyToNull(json['qrCodeBase64']),
+      ticketUrl: _emptyToNull(json['ticketUrl']),
+    );
+  }
+}
+
+String? _emptyToNull(Object? value) {
+  final text = value?.toString();
+  if (text == null || text.isEmpty) {
+    return null;
+  }
+
+  return text;
 }

@@ -1,7 +1,6 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/auth_session.dart';
-import '../../domain/entities/registered_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
 import '../datasources/password_recovery_remote_data_source.dart';
@@ -21,7 +20,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final PasswordRecoveryRemoteDataSource passwordRecoveryRemoteDataSource;
 
   @override
-  Future<Result<RegisteredUser>> register(RegisterRequest request) async {
+  Future<Result<AuthSession>> register(RegisterRequest request) async {
     try {
       final response = await remoteDataSource.register(request);
       return Success(response.toEntity());

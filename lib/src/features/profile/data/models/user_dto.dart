@@ -6,6 +6,7 @@ class UserDto {
     this.identification,
     this.pixKey,
     this.hourlyRate,
+    this.avatarUrl,
     this.createdAt,
     this.updatedAt,
   });
@@ -31,6 +32,9 @@ class UserDto {
       hourlyRate: json['hourlyRate'] == null
           ? null
           : (json['hourlyRate'] as num).toDouble(),
+      avatarUrl: (json['avatarUrl'] ?? '').toString().isEmpty
+          ? null
+          : (json['avatarUrl'] ?? '').toString(),
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
     );
@@ -43,6 +47,7 @@ class UserDto {
   final String? identification;
   final String? pixKey;
   final double? hourlyRate;
+  final String? avatarUrl;
 
   final DateTime? createdAt;
   final DateTime? updatedAt;

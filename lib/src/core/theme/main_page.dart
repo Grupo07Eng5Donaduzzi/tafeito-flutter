@@ -7,7 +7,7 @@ import 'package:tafeito_flutter/src/features/auth/presentation/views/home_page.d
 import 'package:tafeito_flutter/src/features/auth/presentation/views/profile_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/views/services_page.dart';
 import 'package:tafeito_flutter/src/features/auth/presentation/widgets/auth_logo.dart';
-import 'package:tafeito_flutter/src/features/profile/data/models/update_user_request.dart';
+import 'package:tafeito_flutter/src/features/chat/domain/repositories/chat_repository.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
 import 'package:tafeito_flutter/src/features/quotes/domain/repositories/quotes_repository.dart';
 import 'package:tafeito_flutter/src/features/services/domain/repositories/services_repository.dart';
@@ -18,6 +18,7 @@ class MainPage extends StatefulWidget {
     required this.profileRepository,
     required this.servicesRepository,
     required this.quotesRepository,
+    required this.chatRepository,
     super.key,
   });
 
@@ -27,6 +28,7 @@ class MainPage extends StatefulWidget {
   final ProfileRepository profileRepository;
   final ServicesRepository servicesRepository;
   final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -54,17 +56,19 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future<void> _onBecomeProvider(String pixKey) async {
-    final userId = widget.sessionManager.session?.user.id ?? '';
-    if (userId.isEmpty || pixKey.isEmpty) return;
+  Future<bool> _onBecomeProvider(String pixKey, double hourlyRate) async {
+    if (pixKey.isEmpty) return false;
 
-    final result = await widget.profileRepository.update(
-      id: userId,
-      request: UpdateUserRequest(pixKey: pixKey),
+    final result = await widget.profileRepository.becomeProvider(
+      pixKey: pixKey,
+      hourlyRate: hourlyRate,
     );
     if (result is Success && mounted) {
       setState(() => _isProvider = true);
+      return true;
     }
+
+    return false;
   }
 
   @override
@@ -83,7 +87,10 @@ class _MainPageState extends State<MainPage> {
         quotesRepository: widget.quotesRepository,
         isProvider: _isProvider,
       ),
-      const ChatPage(),
+      ChatPage(
+        sessionManager: widget.sessionManager,
+        chatRepository: widget.chatRepository,
+      ),
       ProfilePage(
         sessionManager: widget.sessionManager,
         profileRepository: widget.profileRepository,
@@ -122,12 +129,12 @@ class _MainPageState extends State<MainPage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
-            label: 'Inicio',
+            label: 'Início',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.work_outline),
             activeIcon: Icon(Icons.work),
-            label: 'Servicos',
+            label: 'Serviços',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),

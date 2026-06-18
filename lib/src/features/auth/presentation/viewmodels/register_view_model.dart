@@ -1,15 +1,20 @@
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/result/result.dart';
+import '../../../../core/session/session_manager.dart';
 import '../../data/models/register_request.dart';
 import '../../domain/entities/user_type.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class RegisterViewModel extends ChangeNotifier {
-  RegisterViewModel({required AuthRepository authRepository})
-      : _authRepository = authRepository;
+  RegisterViewModel({
+    required AuthRepository authRepository,
+    required SessionManager sessionManager,
+  })  : _authRepository = authRepository,
+        _sessionManager = sessionManager;
 
   final AuthRepository _authRepository;
+  final SessionManager _sessionManager;
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -32,7 +37,7 @@ class RegisterViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> register({
+  Future<bool> register({
     required String name,
     required String document,
     required String email,
@@ -53,13 +58,17 @@ class RegisterViewModel extends ChangeNotifier {
     );
 
     switch (result) {
-      case Success():
+      case Success(:final data):
+        await _sessionManager.saveSession(data);
         _successMessage = 'Conta criada com sucesso.';
+        _setLoading(false);
+        return true;
       case Failure(:final message):
         _errorMessage = message;
     }
 
     _setLoading(false);
+    return false;
   }
 
   void _setLoading(bool value) {

@@ -1,13 +1,13 @@
 import 'dart:convert';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/network/api_paths.dart';
 import '../models/auth_session_response.dart';
 import '../models/login_request.dart';
 import '../models/register_request.dart';
-import '../models/register_response.dart';
 
 abstract interface class AuthRemoteDataSource {
-  Future<RegisterResponse> register(RegisterRequest request);
+  Future<AuthSessionResponse> register(RegisterRequest request);
 
   Future<AuthSessionResponse> login(LoginRequest request);
 }
@@ -19,19 +19,19 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
   final ApiClient _apiClient;
 
   @override
-  Future<RegisterResponse> register(RegisterRequest request) async {
+  Future<AuthSessionResponse> register(RegisterRequest request) async {
     final response = await _apiClient.post(
-      '/v1/auth/register',
+      ApiPaths.authRegister,
       body: request.toJson(),
     );
 
-    return RegisterResponse.fromJson(asJsonObject(unwrapJsonData(response)));
+    return AuthSessionResponse.fromJson(asJsonObject(response));
   }
 
   @override
   Future<AuthSessionResponse> login(LoginRequest request) async {
     final response = await _apiClient.post(
-      '/v1/auth/login',
+      ApiPaths.authLogin,
       body: request.toJson(),
     );
 
@@ -41,15 +41,23 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
 
 class StubAuthRemoteDataSource implements AuthRemoteDataSource {
   @override
-  Future<RegisterResponse> register(RegisterRequest request) async {
+  Future<AuthSessionResponse> register(RegisterRequest request) async {
     // TODO: substituir por chamada HTTP quando o endpoint de cadastro existir.
     await Future<void>.delayed(const Duration(milliseconds: 700));
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final expiresAt = DateTime.now().add(const Duration(days: 30));
 
-    return RegisterResponse(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    return AuthSessionResponse(
+      accessToken: _FakeJwtFactory.create(
+        subject: id,
+        email: request.email,
+        expiresAt: expiresAt,
+      ),
+      userId: id,
       name: request.name,
       email: request.email,
       userType: request.userType,
+      expiresAt: expiresAt,
     );
   }
 

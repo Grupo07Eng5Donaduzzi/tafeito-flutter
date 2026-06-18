@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'core/network/api_client.dart';
+import 'core/network/api_paths.dart';
 import 'core/session/session_guard.dart';
 import 'core/session/session_manager.dart';
 import 'core/theme/app_theme.dart';
@@ -21,6 +22,8 @@ import 'features/auth/presentation/views/password_recovery_email_page.dart';
 import 'features/auth/presentation/views/password_recovery_new_password_page.dart';
 import 'features/auth/presentation/views/register_page.dart';
 import 'features/auth/presentation/widgets/auth_logo.dart';
+import 'features/chat/data/datasources/chat_remote_data_source.dart';
+import 'features/chat/data/repositories/chat_repository_impl.dart';
 import 'features/profile/data/datasources/profile_remote_data_source.dart';
 import 'features/profile/data/repositories/profile_repository_impl.dart';
 import 'features/quotes/data/datasources/quotes_remote_data_source.dart';
@@ -31,6 +34,7 @@ import 'features/services/data/repositories/services_repository_impl.dart';
 class TaFeitoApp extends StatefulWidget {
   const TaFeitoApp({
     this.apiClient,
+    this.chatApiClient,
     this.authLocalDataSource,
     this.authRemoteDataSource,
     this.passwordRecoveryRemoteDataSource,
@@ -38,6 +42,7 @@ class TaFeitoApp extends StatefulWidget {
   });
 
   final ApiClient? apiClient;
+  final ApiClient? chatApiClient;
   final AuthLocalDataSource? authLocalDataSource;
   final AuthRemoteDataSource? authRemoteDataSource;
   final PasswordRecoveryRemoteDataSource? passwordRecoveryRemoteDataSource;
@@ -48,11 +53,13 @@ class TaFeitoApp extends StatefulWidget {
 
 class _TaFeitoAppState extends State<TaFeitoApp> {
   late final ApiClient _apiClient;
+  late final ApiClient _chatApiClient;
   late final SessionManager _sessionManager;
   late final AuthRepositoryImpl _authRepository;
   late final ProfileRepositoryImpl _profileRepository;
   late final ServicesRepositoryImpl _servicesRepository;
   late final QuotesRepositoryImpl _quotesRepository;
+  late final ChatRepositoryImpl _chatRepository;
   late final Future<void> _sessionInitialization;
 
   @override
@@ -65,6 +72,12 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
     );
     _apiClient = widget.apiClient ??
         HttpApiClient(
+          baseUri: Uri.parse(ApiPaths.mainBaseUrl),
+          accessTokenProvider: () => _sessionManager.session?.accessToken,
+        );
+    _chatApiClient = widget.chatApiClient ??
+        HttpApiClient(
+          baseUri: Uri.parse(ApiPaths.chatBaseUrl),
           accessTokenProvider: () => _sessionManager.session?.accessToken,
         );
     _authRepository = AuthRepositoryImpl(
@@ -82,6 +95,9 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
     );
     _quotesRepository = QuotesRepositoryImpl(
       remoteDataSource: ApiQuotesRemoteDataSource(apiClient: _apiClient),
+    );
+    _chatRepository = ChatRepositoryImpl(
+      remoteDataSource: ApiChatRemoteDataSource(apiClient: _chatApiClient),
     );
     _sessionInitialization = _sessionManager.initialize();
   }
@@ -110,6 +126,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                       profileRepository: _profileRepository,
                       servicesRepository: _servicesRepository,
                       quotesRepository: _quotesRepository,
+                      chatRepository: _chatRepository,
                     ),
                   );
                 }
@@ -123,7 +140,10 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
               },
             ),
         RegisterPage.routeName: (_) => RegisterPage(
-              viewModel: RegisterViewModel(authRepository: _authRepository),
+              viewModel: RegisterViewModel(
+                authRepository: _authRepository,
+                sessionManager: _sessionManager,
+              ),
             ),
         LoginPage.routeName: (_) => LoginPage(
               viewModel: LoginViewModel(
@@ -158,6 +178,7 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                 profileRepository: _profileRepository,
                 servicesRepository: _servicesRepository,
                 quotesRepository: _quotesRepository,
+                chatRepository: _chatRepository,
               ),
             ),
       },

@@ -48,6 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _profileImageBytes = bytes;
     });
+    await _viewModel.uploadAvatar(bytes: bytes, fileName: picked.name);
   }
 
   void _showEditPhotoModal(BuildContext context) {
@@ -121,11 +122,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       CircleAvatar(
                         radius: 48,
-                        backgroundImage: _profileImageBytes == null
-                            ? const NetworkImage(
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                              )
-                            : MemoryImage(_profileImageBytes!),
+                        backgroundImage: _profileImageBytes != null
+                            ? MemoryImage(_profileImageBytes!)
+                            : (_viewModel.me?.avatarUrl != null
+                                ? NetworkImage(_viewModel.me!.avatarUrl!)
+                                : null),
+                        child: _profileImageBytes == null &&
+                                _viewModel.me?.avatarUrl == null
+                            ? const Icon(Icons.person, size: 42)
+                            : null,
                       ),
                       Positioned(
                         bottom: 0,

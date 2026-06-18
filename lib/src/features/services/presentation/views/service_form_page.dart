@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/service_dto.dart';
@@ -23,6 +26,8 @@ class ServiceFormPage extends StatefulWidget {
 
 class _ServiceFormPageState extends State<ServiceFormPage> {
   late final ServiceFormViewModel _viewModel;
+  final _picker = ImagePicker();
+  Uint8List? _imageBytes;
 
   @override
   void initState() {
@@ -39,6 +44,20 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+    );
+    if (picked == null) {
+      return;
+    }
+
+    final bytes = await picked.readAsBytes();
+    setState(() => _imageBytes = bytes);
+    _viewModel.setPhoto(bytes: bytes, fileName: picked.name);
+  }
+
   Future<void> _save() async {
     final ok = await _viewModel.save();
     if (ok && mounted) {
@@ -49,31 +68,33 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
-          'Excluir servico',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          'Excluir serviço',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
         content: const Text(
-          'Tem certeza que deseja excluir este servico? Esta acao nao pode ser desfeita.',
+          'Tem certeza que deseja excluir este serviço?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Excluir'),
           ),
         ],
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
 
     final ok = await _viewModel.delete();
     if (ok && mounted) {
@@ -90,56 +111,64 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
         builder: (context, _) {
           return Column(
             children: [
-              _buildImageHeader(),
+              _ImageHeader(
+                imageBytes: _imageBytes,
+                imageUrl: widget.existingService?.imageUrl,
+                onBack: () => Navigator.of(context).pop(false),
+                onPickImage: _pickImage,
+              ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildField(
-                        label: 'Titulo',
+                      _FieldLabel(
+                        label: 'Título',
                         child: TextFormField(
                           controller: _viewModel.nameController,
                           decoration: const InputDecoration(
-                            hintText: 'Nome do servico',
+                            hintText: 'Nome do serviço',
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildField(
-                        label: 'Descricao',
+                      const SizedBox(height: 14),
+                      _FieldLabel(
+                        label: 'Descrição',
                         child: TextFormField(
                           controller: _viewModel.descriptionController,
-                          maxLines: 5,
+                          minLines: 5,
+                          maxLines: 8,
                           decoration: const InputDecoration(
-                            hintText: 'Descreva o servico detalhadamente',
+                            hintText: 'Descreva o serviço detalhadamente',
                             alignLabelWithHint: true,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildField(
+                      const SizedBox(height: 14),
+                      _FieldLabel(
                         label: 'Categoria',
                         child: DropdownButtonFormField<String>(
-                          value: _viewModel.selectedCategory,
+                          initialValue: _viewModel.selectedCategory,
                           decoration: const InputDecoration(),
                           items: serviceCategories
                               .map(
-                                (c) => DropdownMenuItem(
-                                  value: c,
-                                  child: Text(c),
+                                (category) => DropdownMenuItem(
+                                  value: category,
+                                  child: Text(category),
                                 ),
                               )
                               .toList(),
-                          onChanged: (v) {
-                            if (v != null) _viewModel.setCategory(v);
+                          onChanged: (value) {
+                            if (value != null) {
+                              _viewModel.setCategory(value);
+                            }
                           },
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildField(
-                        label: 'Preco Base',
+                      const SizedBox(height: 14),
+                      _FieldLabel(
+                        label: 'Preço Base',
                         child: Row(
                           children: [
                             Expanded(
@@ -161,15 +190,16 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                               child: Text(
                                 '/',
                                 style: TextStyle(
-                                  fontSize: 18,
                                   color: AppTheme.textMuted,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                             Expanded(
                               flex: 2,
                               child: DropdownButtonFormField<String>(
-                                value: _viewModel.selectedUnit,
+                                initialValue: _viewModel.selectedUnit,
                                 isExpanded: true,
                                 decoration: const InputDecoration(
                                   contentPadding: EdgeInsets.symmetric(
@@ -179,14 +209,16 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                                 ),
                                 items: serviceUnits
                                     .map(
-                                      (u) => DropdownMenuItem(
-                                        value: u,
-                                        child: Text(u),
+                                      (unit) => DropdownMenuItem(
+                                        value: unit,
+                                        child: Text(unit),
                                       ),
                                     )
                                     .toList(),
-                                onChanged: (v) {
-                                  if (v != null) _viewModel.setUnit(v);
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    _viewModel.setUnit(value);
+                                  }
                                 },
                               ),
                             ),
@@ -198,13 +230,19 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                         Text(
                           _viewModel.errorMessage!,
                           style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFB91C1C),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 32),
-                      _buildActionButtons(),
+                      const SizedBox(height: 28),
+                      _ActionButtons(
+                        isEditing: _viewModel.isEditing,
+                        isLoading: _viewModel.isLoading,
+                        onDelete: _confirmDelete,
+                        onSave: _save,
+                      ),
                     ],
                   ),
                 ),
@@ -215,43 +253,132 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
       ),
     );
   }
+}
 
-  Widget _buildImageHeader() {
-    return Stack(
-      children: [
-        Container(
-          height: 220,
-          width: double.infinity,
-          color: const Color(0xFFE5E7EB),
-          child: const Icon(
-            Icons.add_photo_alternate_outlined,
-            size: 48,
-            color: Color(0xFF9CA3AF),
+class _ImageHeader extends StatelessWidget {
+  const _ImageHeader({
+    required this.imageBytes,
+    required this.imageUrl,
+    required this.onBack,
+    required this.onPickImage,
+  });
+
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+  final VoidCallback onBack;
+  final VoidCallback onPickImage;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 210,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            onTap: onPickImage,
+            child: _HeaderImage(imageBytes: imageBytes, imageUrl: imageUrl),
           ),
-        ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(left: 8, top: 4),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
-              onPressed: () => Navigator.of(context).pop(false),
+          SafeArea(
+            bottom: false,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: TextButton.icon(
+                onPressed: onBack,
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('Voltar'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textPrimary,
+                  padding: const EdgeInsets.only(left: 8, top: 4),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+          Positioned(
+            right: 16,
+            bottom: 14,
+            child: IconButton(
+              tooltip: 'Adicionar foto',
+              onPressed: onPickImage,
+              icon: const Icon(Icons.photo_camera_outlined, size: 20),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
 
-  Widget _buildField({required String label, required Widget child}) {
+class _HeaderImage extends StatelessWidget {
+  const _HeaderImage({
+    required this.imageBytes,
+    required this.imageUrl,
+  });
+
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageBytes != null) {
+      return Image.memory(imageBytes!, fit: BoxFit.cover);
+    }
+
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return Image.network(
+        imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const _ImagePlaceholder(),
+      );
+    }
+
+    return const _ImagePlaceholder();
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFD9DDE2),
+      child: const Center(
+        child: Icon(
+          Icons.add_photo_alternate_outlined,
+          color: Color(0xFF9CA3AF),
+          size: 42,
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({
+    required this.label,
+    required this.child,
+  });
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: const TextStyle(
-            fontSize: 14,
+            color: AppTheme.textMuted,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
           ),
         ),
         const SizedBox(height: 6),
@@ -259,9 +386,24 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
       ],
     );
   }
+}
 
-  Widget _buildActionButtons() {
-    if (_viewModel.isLoading) {
+class _ActionButtons extends StatelessWidget {
+  const _ActionButtons({
+    required this.isEditing,
+    required this.isLoading,
+    required this.onDelete,
+    required this.onSave,
+  });
+
+  final bool isEditing;
+  final bool isLoading;
+  final VoidCallback onDelete;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.primary),
       );
@@ -269,29 +411,32 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
 
     return Row(
       children: [
-        if (_viewModel.isEditing) ...[
-          Expanded(
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                side: const BorderSide(color: Color(0xFFD1D5DB)),
-                foregroundColor: AppTheme.textPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: _confirmDelete,
-              child: const Text(
-                'Excluir',
-                style: TextStyle(fontWeight: FontWeight.w700),
+        Expanded(
+          child: TextButton(
+            onPressed: isEditing ? onDelete : null,
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFFD1D5DB),
+              foregroundColor: AppTheme.textPrimary,
+              disabledBackgroundColor: const Color(0xFFD1D5DB),
+              disabledForegroundColor: AppTheme.textPrimary,
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
+            child: const Text(
+              'Excluir',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+            ),
           ),
-          const SizedBox(width: 12),
-        ],
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: ElevatedButton(
-            onPressed: _save,
+            onPressed: onSave,
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+            ),
             child: const Text('Salvar'),
           ),
         ),

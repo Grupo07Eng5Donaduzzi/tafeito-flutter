@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/result/result.dart';
 import '../../data/models/create_service_request.dart';
 import '../../data/models/service_dto.dart';
@@ -39,9 +41,10 @@ class ServiceFormViewModel extends ChangeNotifier {
           : existingService.category;
       priceController.text = existingService.price;
       final unitFromService = existingService.duration ?? existingService.unit;
-      _selectedUnit = (unitFromService != null && _units.contains(unitFromService))
-          ? unitFromService
-          : 'dia';
+      _selectedUnit =
+          (unitFromService != null && _units.contains(unitFromService))
+              ? unitFromService
+              : 'dia';
     } else {
       _selectedCategory = _categories.first;
       _selectedUnit = 'dia';
@@ -54,6 +57,8 @@ class ServiceFormViewModel extends ChangeNotifier {
   final nameController = TextEditingController();
   final descriptionController = TextEditingController();
   final priceController = TextEditingController();
+  Uint8List? _photoBytes;
+  String? _photoFileName;
 
   String _selectedCategory = _categories.first;
   String _selectedUnit = 'dia';
@@ -76,15 +81,27 @@ class ServiceFormViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPhoto({required Uint8List bytes, required String fileName}) {
+    _photoBytes = bytes;
+    _photoFileName = fileName;
+    notifyListeners();
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
   String? validate() {
-    if (nameController.text.trim().isEmpty) return 'Informe o titulo do servico.';
-    if (descriptionController.text.trim().isEmpty) return 'Informe a descricao.';
-    if (priceController.text.trim().isEmpty) return 'Informe o preco.';
+    if (nameController.text.trim().isEmpty) {
+      return 'Informe o título do serviço.';
+    }
+    if (descriptionController.text.trim().isEmpty) {
+      return 'Informe a descrição.';
+    }
+    if (priceController.text.trim().isEmpty) {
+      return 'Informe o preço.';
+    }
     return null;
   }
 
@@ -117,7 +134,24 @@ class ServiceFormViewModel extends ChangeNotifier {
     _setLoading(false);
 
     switch (result) {
-      case Success():
+      case Success(:final data):
+        final photoBytes = _photoBytes;
+        final photoFileName = _photoFileName;
+        if (photoBytes != null && photoFileName != null) {
+          final uploadResult = await _servicesRepository.uploadPhoto(
+            id: data.id,
+            photo: MultipartFilePayload(
+              fieldName: 'photo',
+              fileName: photoFileName,
+              bytes: photoBytes,
+            ),
+          );
+          if (uploadResult case Failure(:final message)) {
+            _errorMessage = message;
+            notifyListeners();
+            return false;
+          }
+        }
         return true;
       case Failure(:final message):
         _errorMessage = message;

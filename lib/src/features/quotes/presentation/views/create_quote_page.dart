@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_ui.dart';
 import '../../domain/repositories/quotes_repository.dart';
 import '../viewmodels/create_quote_view_model.dart';
 
@@ -35,6 +36,7 @@ class _CreateQuotePageState extends State<CreateQuotePage> {
       serviceId: widget.serviceId,
       serviceCategory: widget.serviceCategory,
     );
+    _viewModel.titleController.text = widget.serviceName;
   }
 
   @override
@@ -44,27 +46,18 @@ class _CreateQuotePageState extends State<CreateQuotePage> {
   }
 
   Future<void> _pickPhoto() async {
-    if (_viewModel.photos.length >= 5) return;
+    if (_viewModel.photos.length >= 5) {
+      return;
+    }
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 80,
     );
-    if (picked == null) return;
+    if (picked == null) {
+      return;
+    }
     final bytes = await picked.readAsBytes();
     _viewModel.addPhoto(bytes);
-  }
-
-  Future<void> _submit() async {
-    final ok = await _viewModel.submit();
-    if (ok && mounted) {
-      Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Solicitação enviada com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
   }
 
   Future<void> _pickDate() async {
@@ -75,8 +68,24 @@ class _CreateQuotePageState extends State<CreateQuotePage> {
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
     );
-    if (picked == null) return;
-    _viewModel.setDate(picked);
+    if (picked != null) {
+      _viewModel.setDate(picked);
+    }
+  }
+
+  Future<void> _submit() async {
+    final ok = await _viewModel.submit();
+    if (!mounted || !ok) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Solicitação enviada.'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
   }
 
   @override
@@ -86,58 +95,63 @@ class _CreateQuotePageState extends State<CreateQuotePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+        leadingWidth: 86,
+        leading: TextButton.icon(
           onPressed: () => Navigator.of(context).pop(false),
-        ),
-        title: Text(
-          widget.serviceName,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          overflow: TextOverflow.ellipsis,
+          icon: const Icon(Icons.arrow_back, size: 18),
+          label: const Text('Voltar'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppTheme.textPrimary,
+            padding: const EdgeInsets.only(left: 8),
+          ),
         ),
       ),
       body: AnimatedBuilder(
         animation: _viewModel,
         builder: (context, _) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _label('Título'),
-                const SizedBox(height: 6),
-                TextFormField(
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(24, 10, 24, 28),
+            children: [
+              const AppSheetHandle(),
+              const SizedBox(height: 24),
+              _FieldLabel(
+                label: 'O que você precisa?',
+                child: TextFormField(
                   controller: _viewModel.titleController,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
-                    hintText: 'Ex: Pintura de sala, Instalação elétrica...',
+                    hintText: 'Ex: Plantio no jardim da frente',
                   ),
                 ),
-                const SizedBox(height: 20),
-                _label('Descrição'),
-                const SizedBox(height: 6),
-                TextFormField(
+              ),
+              const SizedBox(height: 16),
+              _FieldLabel(
+                label: 'Descrição',
+                child: TextFormField(
                   controller: _viewModel.descriptionController,
-                  maxLines: 4,
+                  minLines: 4,
+                  maxLines: 6,
                   decoration: const InputDecoration(
-                    hintText: 'Descreva o que você precisa...',
+                    hintText: 'Descreva o serviço com detalhes',
                     alignLabelWithHint: true,
                   ),
                 ),
-                const SizedBox(height: 20),
-                _label('Localização'),
-                const SizedBox(height: 6),
-                TextFormField(
+              ),
+              const SizedBox(height: 16),
+              _FieldLabel(
+                label: 'Localização',
+                child: TextFormField(
                   controller: _viewModel.locationController,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
-                    hintText: 'Cidade, bairro ou endereço...',
+                    hintText: 'Cidade, bairro ou endereço',
                   ),
                 ),
-                const SizedBox(height: 20),
-                _label('Data do serviço'),
-                const SizedBox(height: 6),
-                GestureDetector(
+              ),
+              const SizedBox(height: 16),
+              _FieldLabel(
+                label: 'Data do serviço',
+                child: GestureDetector(
                   onTap: _pickDate,
                   child: AbsorbPointer(
                     child: TextFormField(
@@ -153,125 +167,162 @@ class _CreateQuotePageState extends State<CreateQuotePage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                _label('Fotos (opcional)'),
-                const SizedBox(height: 6),
-                _buildPhotoSection(),
-                const SizedBox(height: 4),
-                const Text(
-                  'Até 5 fotos · JPG, PNG',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 16),
+              _FieldLabel(
+                label: 'Fotos (opcional)',
+                child: _PhotoPicker(
+                  viewModel: _viewModel,
+                  onPickPhoto: _pickPhoto,
                 ),
-                if (_viewModel.errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _viewModel.errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.w600,
-                    ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Até 5 fotos · JPG, PNG',
+                style: TextStyle(
+                  color: AppTheme.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (_viewModel.errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _viewModel.errorMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
-                ],
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _viewModel.isLoading ? null : _submit,
-                  child: _viewModel.isLoading
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Solicitar orçamento'),
                 ),
               ],
-            ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _viewModel.isLoading ? null : _submit,
+                child: _viewModel.isLoading
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Enviar'),
+              ),
+            ],
           );
         },
       ),
     );
   }
+}
 
-  Widget _label(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.textPrimary,
-      ),
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({
+    required this.label,
+    required this.child,
+  });
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
     );
   }
+}
 
-  Widget _buildPhotoSection() {
-    return AnimatedBuilder(
-      animation: _viewModel,
-      builder: (context, _) {
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...List.generate(
-              _viewModel.photos.length,
-              (i) => Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      _viewModel.photos[i],
-                      width: 72,
-                      height: 72,
-                      fit: BoxFit.cover,
-                    ),
+class _PhotoPicker extends StatelessWidget {
+  const _PhotoPicker({
+    required this.viewModel,
+    required this.onPickPhoto,
+  });
+
+  final CreateQuoteViewModel viewModel;
+  final VoidCallback onPickPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ...List.generate(
+          viewModel.photos.length,
+          (index) => Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(
+                  viewModel.photos[index],
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                top: -7,
+                right: -7,
+                child: GestureDetector(
+                  onTap: () => viewModel.removePhoto(index),
+                  child: const CircleAvatar(
+                    radius: 10,
+                    backgroundColor: Color(0xFF111827),
+                    child: Icon(Icons.close, color: Colors.white, size: 12),
                   ),
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: GestureDetector(
-                      onTap: () => _viewModel.removePhoto(i),
-                      child: const CircleAvatar(
-                        radius: 10,
-                        backgroundColor: Colors.black54,
-                        child: Icon(Icons.close, size: 12, color: Colors.white),
-                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (viewModel.photos.length < 5)
+          GestureDetector(
+            onTap: onPickPhoto,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppTheme.inputFill,
+                border: Border.all(color: AppTheme.inputBorder),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_a_photo_outlined,
+                    color: AppTheme.textMuted,
+                    size: 22,
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Adicionar',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
               ),
             ),
-            if (_viewModel.photos.length < 5)
-              GestureDetector(
-                onTap: _pickPhoto,
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.inputBorder),
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_photo_alternate_outlined,
-                        color: AppTheme.textMuted,
-                        size: 24,
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Adicionar',
-                        style: TextStyle(fontSize: 10, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+      ],
     );
   }
 }
