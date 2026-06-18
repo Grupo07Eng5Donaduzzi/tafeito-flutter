@@ -21,6 +21,7 @@ class ProfileViewModel extends ChangeNotifier {
 
   final nameController = TextEditingController();
   final emailController = TextEditingController();
+  final pixKeyController = TextEditingController();
 
   Future<void> changePassword({
     required String currentPassword,
@@ -61,6 +62,7 @@ class ProfileViewModel extends ChangeNotifier {
   void dispose() {
     nameController.dispose();
     emailController.dispose();
+    pixKeyController.dispose();
     super.dispose();
   }
 
@@ -74,6 +76,7 @@ class ProfileViewModel extends ChangeNotifier {
         _me = data;
         nameController.text = data.name;
         emailController.text = data.email;
+        pixKeyController.text = data.pixKey ?? '';
       case Failure(:final message):
         _errorMessage = message;
     }
@@ -87,11 +90,14 @@ class ProfileViewModel extends ChangeNotifier {
     _setLoading(true);
     _errorMessage = null;
 
+    final pixKey = pixKeyController.text.trim();
+
     final result = await _profileRepository.update(
       id: _me!.id,
       request: UpdateUserRequest(
         name: nameController.text.trim(),
         email: emailController.text.trim(),
+        pixKey: pixKey.isNotEmpty ? pixKey : null,
       ),
     );
 
@@ -100,6 +106,7 @@ class ProfileViewModel extends ChangeNotifier {
         _me = data;
         nameController.text = data.name;
         emailController.text = data.email;
+        pixKeyController.text = data.pixKey ?? '';
       case Failure(:final message):
         _errorMessage = message;
     }

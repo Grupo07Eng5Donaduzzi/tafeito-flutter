@@ -1,8 +1,13 @@
 import '../../../../core/network/api_client.dart';
+import '../models/create_service_request.dart';
 import '../models/service_dto.dart';
 
 abstract interface class ServicesRemoteDataSource {
   Future<List<ServiceDto>> findAll({String? category});
+  Future<List<ServiceDto>> findMine({required String userId});
+  Future<ServiceDto> create(CreateServiceRequest request);
+  Future<ServiceDto> update(String id, CreateServiceRequest request);
+  Future<void> delete(String id);
 }
 
 class ApiServicesRemoteDataSource implements ServicesRemoteDataSource {
@@ -17,29 +22,60 @@ class ApiServicesRemoteDataSource implements ServicesRemoteDataSource {
       '/v1/services',
       queryParameters: {'category': category},
     );
-    final servicesJson = _extractList(response);
-
-    return servicesJson
-        .whereType<Map>()
-        .map((json) => ServiceDto.fromJson(asJsonObject(json)))
-        .toList();
+    return _extractList(response);
   }
 
-  List<Object?> _extractList(Object? response) {
+  @override
+  Future<List<ServiceDto>> findMine({required String userId}) async {
+    final response = await _apiClient.get('/v1/services');
+    final all = _extractList(response);
+    return all.where((s) => s.providerId == userId).toList();
+  }
+
+  @override
+  Future<ServiceDto> create(CreateServiceRequest request) async {
+    final response = await _apiClient.post(
+      '/v1/services',
+      body: request.toJson(),
+    );
+    return ServiceDto.fromJson(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<ServiceDto> update(String id, CreateServiceRequest request) async {
+    final response = await _apiClient.put(
+      '/v1/services/$id',
+      body: request.toJson(),
+    );
+    return ServiceDto.fromJson(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    await _apiClient.delete('/v1/services/$id');
+  }
+
+  List<ServiceDto> _extractList(Object? response) {
     final unwrapped = unwrapJsonData(response);
     if (unwrapped is List) {
-      return asJsonList(unwrapped);
+      return asJsonList(unwrapped)
+          .whereType<Map>()
+          .map((json) => ServiceDto.fromJson(asJsonObject(json)))
+          .toList();
     }
 
     if (unwrapped is Map) {
-      for (final key in ['items', 'services', 'records']) {
+      for (final key in ['items', 'services', 'records', 'data']) {
         final value = unwrapped[key];
         if (value is List) {
-          return asJsonList(value);
+          return asJsonList(value)
+              .whereType<Map>()
+              .map((json) => ServiceDto.fromJson(asJsonObject(json)))
+              .toList();
         }
       }
     }
 
-    return asJsonList(unwrapped);
+    return [];
   }
 }
