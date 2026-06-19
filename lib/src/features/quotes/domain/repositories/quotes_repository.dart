@@ -37,6 +37,6 @@ abstract interface class QuotesRepository {
   /// Client: contest/negotiate a proposal.
   Future<Result<QuoteDto>> contestProposal(String proposalId, String reason);
 
-  /// Provider: cancel/reject a budget request.
-  Future<Result<void>> cancelRequest(String requestId);
+  /// Provider: decline a budget request (remove from Solicitados permanently).
+  Future<Result<void>> declineRequest(String requestId);
 }

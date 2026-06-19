@@ -158,12 +158,12 @@ class QuotesHomeViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> cancelRequest(String requestId) async {
+  Future<bool> declineRequest(String requestId) async {
     _actionLoading = true;
     _actionError = null;
     notifyListeners();
 
-    final result = await _quotesRepository.cancelRequest(requestId);
+    final result = await _quotesRepository.declineRequest(requestId);
 
     _actionLoading = false;
     switch (result) {

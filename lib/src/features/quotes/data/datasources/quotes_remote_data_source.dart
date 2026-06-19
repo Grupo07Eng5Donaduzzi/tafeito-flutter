@@ -18,7 +18,7 @@ abstract interface class QuotesRemoteDataSource {
   Future<PaymentCheckDto> checkPayment(String proposalId);
   Future<QuoteDto> rejectProposal(String proposalId, {String? reason});
   Future<QuoteDto> contestProposal(String proposalId, String reason);
-  Future<void> cancelRequest(String requestId);
+  Future<void> declineRequest(String requestId);
 }
 
 class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
@@ -114,11 +114,8 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
   }
 
   @override
-  Future<void> cancelRequest(String requestId) async {
-    await _apiClient.patch(
-      ApiPaths.cancelBudgetRequest(requestId),
-      body: {'reason': 'Cancelado pelo prestador'},
-    );
+  Future<void> declineRequest(String requestId) async {
+    await _apiClient.post(ApiPaths.declineBudgetRequest(requestId));
   }
 
   List<QuoteDto> _extractBudgetRequests(Object? response) {

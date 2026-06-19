@@ -35,6 +35,8 @@ class ApiPaths {
       '/v1/budgetRequests/$id/photos';
   static String cancelBudgetRequest(String id) =>
       '/v1/budgetRequests/$id/cancel';
+  static String declineBudgetRequest(String id) =>
+      '/v1/budgetRequests/$id/providerDecline';
 
   static const proposals = '/v1/proposals';
   static const providerProposals = '/v1/proposals/provider/created';

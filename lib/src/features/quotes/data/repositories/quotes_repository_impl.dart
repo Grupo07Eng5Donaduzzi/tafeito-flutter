@@ -72,8 +72,8 @@ class QuotesRepositoryImpl implements QuotesRepository {
       _run(() => _remoteDataSource.contestProposal(proposalId, reason));
 
   @override
-  Future<Result<void>> cancelRequest(String requestId) =>
-      _run(() => _remoteDataSource.cancelRequest(requestId));
+  Future<Result<void>> declineRequest(String requestId) =>
+      _run(() => _remoteDataSource.declineRequest(requestId));
 
   Future<Result<T>> _run<T>(Future<T> Function() fn) async {
     try {

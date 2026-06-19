@@ -1073,7 +1073,7 @@ class _RequestCardState extends State<_RequestCard> {
                   label: 'Recusar',
                   onPressed: widget.viewModel.actionLoading
                       ? null
-                      : () => widget.viewModel.cancelRequest(quote.id),
+                      : () => widget.viewModel.declineRequest(quote.id),
                 ),
               ),
               const SizedBox(width: 8),
