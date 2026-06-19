@@ -33,6 +33,16 @@ class ServicesRepositoryImpl implements ServicesRepository {
   }
 
   @override
+  Future<Result<ServiceDto>> findById(String id) async {
+    try {
+      final service = await _remoteDataSource.findById(id);
+      return Success(service);
+    } on Exception catch (e) {
+      return Failure(_messageFrom(e, 'Não foi possível carregar o serviço.'));
+    }
+  }
+
+  @override
   Future<Result<ServiceDto>> create(CreateServiceRequest request) async {
     try {
       final service = await _remoteDataSource.create(request);

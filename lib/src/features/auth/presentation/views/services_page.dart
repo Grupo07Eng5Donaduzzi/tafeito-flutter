@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/result/result.dart';
 import '../../../../core/session/session_manager.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_ui.dart';
+import '../../../../features/chat/domain/repositories/chat_repository.dart';
+import '../../../../features/quotes/data/models/quote_dto.dart';
 import '../../../../features/quotes/domain/repositories/quotes_repository.dart';
 import '../../../../features/quotes/presentation/views/create_quote_page.dart';
 import '../../../../features/services/data/models/service_dto.dart';
@@ -11,12 +14,14 @@ import '../../../../features/services/presentation/viewmodels/service_form_view_
 import '../../../../features/services/presentation/viewmodels/services_view_model.dart';
 import '../../../../features/services/presentation/views/service_detail_page.dart';
 import '../../../../features/services/presentation/views/service_form_page.dart';
+import '../views/chat_page.dart';
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({
     required this.servicesRepository,
     required this.sessionManager,
     required this.quotesRepository,
+    required this.chatRepository,
     required this.isProvider,
     super.key,
   });
@@ -24,6 +29,7 @@ class ServicesPage extends StatefulWidget {
   final ServicesRepository servicesRepository;
   final SessionManager sessionManager;
   final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
   final bool isProvider;
 
   @override
@@ -35,6 +41,7 @@ class _ServicesPageState extends State<ServicesPage> {
   late final ServicesViewModel _myServicesVm;
   int _topIndex = 0;
   int _subIndex = 0;
+  int _inProgressCount = 0;
 
   @override
   void initState() {
@@ -74,7 +81,10 @@ class _ServicesPageState extends State<ServicesPage> {
   Future<void> _openServiceDetail(ServiceDto service) async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute(
-        builder: (_) => ServiceDetailPage(service: service),
+        builder: (_) => ServiceDetailPage(
+          service: service,
+          servicesRepository: widget.servicesRepository,
+        ),
       ),
     );
 
@@ -111,7 +121,7 @@ class _ServicesPageState extends State<ServicesPage> {
               AppSegmentedControl(
                 labels: const ['Explorar', 'Em andamento'],
                 selected: _subIndex,
-                badges: const [0, 1],
+                badges: [0, _inProgressCount],
                 onTap: (index) => setState(() => _subIndex = index),
               ),
             ],
@@ -121,7 +131,17 @@ class _ServicesPageState extends State<ServicesPage> {
           child: Builder(
             builder: (context) {
               if (_subIndex == 1) {
-                return _InProgressTab(isProvider: widget.isProvider);
+                return _InProgressTab(
+                  isProvider: widget.isProvider && _topIndex == 0,
+                  quotesRepository: widget.quotesRepository,
+                  sessionManager: widget.sessionManager,
+                  chatRepository: widget.chatRepository,
+                  onCountChanged: (count) {
+                    if (_inProgressCount != count) {
+                      setState(() => _inProgressCount = count);
+                    }
+                  },
+                );
               }
 
               if (widget.isProvider && _topIndex == 0) {
@@ -143,6 +163,474 @@ class _ServicesPageState extends State<ServicesPage> {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Em andamento tab
+// ---------------------------------------------------------------------------
+
+class _InProgressTab extends StatefulWidget {
+  const _InProgressTab({
+    required this.isProvider,
+    required this.quotesRepository,
+    required this.sessionManager,
+    required this.chatRepository,
+    required this.onCountChanged,
+  });
+
+  final bool isProvider;
+  final QuotesRepository quotesRepository;
+  final SessionManager sessionManager;
+  final ChatRepository chatRepository;
+  final void Function(int count) onCountChanged;
+
+  @override
+  State<_InProgressTab> createState() => _InProgressTabState();
+}
+
+class _InProgressTabState extends State<_InProgressTab> {
+  List<QuoteDto> _proposals = const [];
+  bool _isLoading = false;
+  String? _error;
+  bool _actionLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_InProgressTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isProvider != widget.isProvider) _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final result = widget.isProvider
+        ? await widget.quotesRepository.findProviderProposals()
+        : await widget.quotesRepository.findClientProposals();
+
+    if (!mounted) return;
+
+    switch (result) {
+      case Success(:final data):
+        final active = data
+            .where((p) =>
+                p.status == 'ACCEPTED' || p.status == 'PROVIDER_CONFIRMED')
+            .toList();
+        setState(() => _proposals = active);
+        widget.onCountChanged(active.length);
+      case Failure(:final message):
+        setState(() => _error = message);
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _providerConfirm(QuoteDto proposal) async {
+    setState(() => _actionLoading = true);
+    final result =
+        await widget.quotesRepository.providerConfirmCompletion(proposal.id);
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        await _load();
+      case Failure(:final message):
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+    }
+    if (mounted) setState(() => _actionLoading = false);
+  }
+
+  Future<void> _clientConfirm(QuoteDto proposal) async {
+    setState(() => _actionLoading = true);
+    final result =
+        await widget.quotesRepository.clientConfirmCompletion(proposal.id);
+    if (!mounted) return;
+    switch (result) {
+      case Success():
+        await _load();
+        if (mounted && proposal.serviceId != null) {
+          _showReviewModal(proposal);
+        }
+      case Failure(:final message):
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+    }
+    if (mounted) setState(() => _actionLoading = false);
+  }
+
+  void _showReviewModal(QuoteDto proposal) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (_) => _ReviewModal(
+        proposal: proposal,
+        quotesRepository: widget.quotesRepository,
+      ),
+    );
+  }
+
+  void _openChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatPage(
+          sessionManager: widget.sessionManager,
+          chatRepository: widget.chatRepository,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return AppEmptyState(
+        message: _error!,
+        actionLabel: 'Tentar novamente',
+        onPressed: _load,
+      );
+    }
+
+    if (_proposals.isEmpty) {
+      return const AppEmptyState(
+        message: 'Nenhum serviço em andamento.',
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppTheme.primary,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        itemCount: _proposals.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final proposal = _proposals[index];
+          return _ProposalCard(
+            proposal: proposal,
+            isProvider: widget.isProvider,
+            actionLoading: _actionLoading,
+            onChat: _openChat,
+            onConfirm: widget.isProvider
+                ? () => _providerConfirm(proposal)
+                : () => _clientConfirm(proposal),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProposalCard extends StatelessWidget {
+  const _ProposalCard({
+    required this.proposal,
+    required this.isProvider,
+    required this.actionLoading,
+    required this.onChat,
+    required this.onConfirm,
+  });
+
+  final QuoteDto proposal;
+  final bool isProvider;
+  final bool actionLoading;
+  final VoidCallback onChat;
+  final VoidCallback onConfirm;
+
+  String get _otherPartyLabel {
+    final name = proposal.otherPartyName;
+    if (name != null && name.isNotEmpty) return name;
+    return isProvider ? 'Cliente' : 'Prestador';
+  }
+
+  String get _mainButtonLabel {
+    if (isProvider) {
+      return proposal.status == 'ACCEPTED' ? 'Finalizar' : 'Aguardando cliente';
+    }
+    return proposal.status == 'PROVIDER_CONFIRMED'
+        ? 'Finalizar'
+        : 'Aguardando prestador';
+  }
+
+  bool get _canConfirm {
+    if (isProvider) return proposal.status == 'ACCEPTED';
+    return proposal.status == 'PROVIDER_CONFIRMED';
+  }
+
+  String _formatDate(String iso) {
+    final d = DateTime.tryParse(iso)?.toLocal();
+    if (d == null) return '';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  String get _subtitle {
+    final date = proposal.createdAt.isNotEmpty
+        ? _formatDate(proposal.createdAt)
+        : '';
+    final value = proposal.proposedValue ?? proposal.estimatedHoursValue ?? '';
+    final parts = [
+      if (date.isNotEmpty) date,
+      if (value.isNotEmpty) 'R\$ $value',
+    ];
+    return parts.join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusIsActive = proposal.status == 'ACCEPTED';
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 16,
+                backgroundColor: Color(0xFFE5E7EB),
+                child: Icon(Icons.person, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _otherPartyLabel,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusIsActive
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  statusIsActive ? 'Em andamento' : 'Ag. confirmação',
+                  style: TextStyle(
+                    color: statusIsActive
+                        ? const Color(0xFF065F46)
+                        : const Color(0xFF92400E),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            proposal.serviceName.isNotEmpty
+                ? proposal.serviceName
+                : 'Serviço',
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (_subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _subtitle,
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: AppSecondaryButton(
+                  label: 'Chat',
+                  dark: true,
+                  onPressed: onChat,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed:
+                      _canConfirm && !actionLoading ? onConfirm : null,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(42),
+                  ),
+                  child: actionLoading && _canConfirm
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(_mainButtonLabel),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewModal extends StatefulWidget {
+  const _ReviewModal({
+    required this.proposal,
+    required this.quotesRepository,
+  });
+
+  final QuoteDto proposal;
+  final QuotesRepository quotesRepository;
+
+  @override
+  State<_ReviewModal> createState() => _ReviewModalState();
+}
+
+class _ReviewModalState extends State<_ReviewModal> {
+  int _rating = 5;
+  final _commentController = TextEditingController();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final serviceId = widget.proposal.serviceId;
+    if (serviceId == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _loading = true);
+    final comment = _commentController.text.trim();
+    await widget.quotesRepository.submitReview(
+      serviceId: serviceId,
+      rating: _rating,
+      comment: comment.isEmpty ? null : comment,
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        20 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Avalie o serviço',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Sua avaliação ajuda outros usuários a escolherem melhor.',
+            style: TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (i) {
+              final star = i + 1;
+              return IconButton(
+                icon: Icon(
+                  star <= _rating ? Icons.star : Icons.star_border,
+                  color: const Color(0xFFF6C515),
+                  size: 36,
+                ),
+                onPressed: () => setState(() => _rating = star),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _commentController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Deixe um comentário (opcional)',
+              contentPadding: EdgeInsets.all(12),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: AppSecondaryButton(
+                  label: 'Pular',
+                  dark: false,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _loading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Enviar avaliação'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Explorar tab
+// ---------------------------------------------------------------------------
 
 class _ExploreTab extends StatefulWidget {
   const _ExploreTab({
@@ -495,6 +983,10 @@ class _ServiceCard extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Meus serviços tab
+// ---------------------------------------------------------------------------
+
 class _MyServicesTab extends StatelessWidget {
   const _MyServicesTab({
     required this.viewModel,
@@ -647,89 +1139,9 @@ class _MyServiceCard extends StatelessWidget {
   }
 }
 
-class _InProgressTab extends StatelessWidget {
-  const _InProgressTab({required this.isProvider});
-
-  final bool isProvider;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      children: [
-        AppCard(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Color(0xFFE5E7EB),
-                    child: Icon(Icons.person, size: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isProvider ? 'Cliente' : 'Ana Lima',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Plantio de flores, plantas e árvores',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                isProvider
-                    ? '20/03/2026 · R\$ 200,00'
-                    : '20/03/2026 · R\$ 200,00',
-                style: const TextStyle(
-                  color: AppTheme.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppSecondaryButton(
-                      label: 'Chat',
-                      dark: true,
-                      onPressed: () {},
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(42),
-                      ),
-                      child:
-                          Text(isProvider ? 'Aguardando cliente' : 'Finalizar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+// ---------------------------------------------------------------------------
+// Shared image widget
+// ---------------------------------------------------------------------------
 
 class _ServiceImage extends StatelessWidget {
   const _ServiceImage({

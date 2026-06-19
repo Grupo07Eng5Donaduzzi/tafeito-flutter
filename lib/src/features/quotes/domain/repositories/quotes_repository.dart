@@ -39,4 +39,17 @@ abstract interface class QuotesRepository {
 
   /// Provider: decline a budget request (remove from Solicitados permanently).
   Future<Result<void>> declineRequest(String requestId);
+
+  /// Provider: confirm service completion (ACCEPTED → PROVIDER_CONFIRMED).
+  Future<Result<void>> providerConfirmCompletion(String proposalId);
+
+  /// Client: confirm service completion (PROVIDER_CONFIRMED → COMPLETED) and release payment.
+  Future<Result<void>> clientConfirmCompletion(String proposalId);
+
+  /// Submit a star rating for a completed service.
+  Future<Result<void>> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  });
 }

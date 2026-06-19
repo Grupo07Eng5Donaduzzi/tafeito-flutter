@@ -6,6 +6,7 @@ import '../../data/models/service_dto.dart';
 abstract interface class ServicesRepository {
   Future<Result<List<ServiceDto>>> findAll({String? category});
   Future<Result<List<ServiceDto>>> findMine({required String userId});
+  Future<Result<ServiceDto>> findById(String id);
   Future<Result<ServiceDto>> create(CreateServiceRequest request);
   Future<Result<ServiceDto>> update(String id, CreateServiceRequest request);
   Future<Result<ServiceDto>> uploadPhoto({

@@ -15,6 +15,8 @@ class QuoteDto {
     this.qrCode,
     this.qrCodeBase64,
     this.ticketUrl,
+    this.linkedChatId,
+    this.serviceId,
   });
 
   final String id;
@@ -32,6 +34,8 @@ class QuoteDto {
   final String? qrCode;
   final String? qrCodeBase64;
   final String? ticketUrl;
+  final String? linkedChatId;
+  final String? serviceId;
 
   // From BudgetRequestDto (budget-requests endpoints)
   factory QuoteDto.fromBudgetRequest(Map<String, Object?> json) {
@@ -61,6 +65,7 @@ class QuoteDto {
     String serviceName;
     String? otherPartyName;
     String? description;
+    String? serviceId;
 
     if (budgetRequest is Map) {
       final service = budgetRequest['service'];
@@ -75,6 +80,10 @@ class QuoteDto {
       otherPartyName = (client is Map ? client['name']?.toString() : null) ??
           (provider is Map ? provider['name']?.toString() : null);
       description = budgetRequest['description']?.toString();
+      serviceId = _emptyToNull(
+        (service is Map ? service['id'] : null) ??
+            budgetRequest['serviceId'],
+      );
     } else {
       final reqId = json['requestId']?.toString() ?? '';
       serviceName =
@@ -114,6 +123,8 @@ class QuoteDto {
       qrCode: _emptyToNull(json['qrCode']),
       qrCodeBase64: _emptyToNull(json['qrCodeBase64']),
       ticketUrl: _emptyToNull(json['ticketUrl']),
+      linkedChatId: _emptyToNull(json['linkedChatId']),
+      serviceId: serviceId,
     );
   }
 }

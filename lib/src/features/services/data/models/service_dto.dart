@@ -1,3 +1,26 @@
+class ReviewDto {
+  const ReviewDto({
+    required this.id,
+    required this.rating,
+    this.comment,
+    required this.createdAt,
+  });
+
+  final String id;
+  final int rating;
+  final String? comment;
+  final String createdAt;
+
+  factory ReviewDto.fromJson(Map<String, Object?> json) {
+    return ReviewDto(
+      id: json['id']?.toString() ?? '',
+      rating: (json['rating'] as num?)?.toInt() ?? 5,
+      comment: _emptyToNull(json['comment']),
+      createdAt: json['createdAt']?.toString() ?? '',
+    );
+  }
+}
+
 class ServiceDto {
   const ServiceDto({
     required this.id,
@@ -12,6 +35,7 @@ class ServiceDto {
     this.providerId,
     this.rating,
     this.reviewCount,
+    this.reviews = const [],
   });
 
   final String id;
@@ -26,6 +50,7 @@ class ServiceDto {
   final String? providerId;
   final String? rating;
   final String? reviewCount;
+  final List<ReviewDto> reviews;
 
   factory ServiceDto.fromJson(Map<String, Object?> json) {
     final provider = json['provider'];
@@ -34,6 +59,33 @@ class ServiceDto {
     if (provider is Map) {
       providerName = provider['name']?.toString();
       providerId = provider['id']?.toString();
+    }
+
+    // Parse reviews block (from findByIdWithDetails response)
+    String? rating = _emptyToNull(
+      json['rating'] ?? json['averageRating'] ?? json['ratingAverage'],
+    );
+    String? reviewCount = _emptyToNull(
+      json['reviewCount'] ?? json['review_count'] ?? json['reviewsCount'],
+    );
+    List<ReviewDto> reviews = const [];
+
+    final reviewsBlock = json['reviews'];
+    if (reviewsBlock is Map) {
+      final avg = reviewsBlock['average'];
+      final total = reviewsBlock['total'];
+      if (avg != null) rating = _emptyToNull(avg);
+      if (total != null) reviewCount = _emptyToNull(total);
+
+      final dataList = reviewsBlock['data'];
+      if (dataList is List) {
+        reviews = dataList
+            .whereType<Map>()
+            .map((r) => ReviewDto.fromJson(
+                  r.map((k, v) => MapEntry(k.toString(), v)),
+                ))
+            .toList();
+      }
     }
 
     return ServiceDto(
@@ -59,12 +111,9 @@ class ServiceDto {
       providerId: _emptyToNull(
         providerId ?? json['providerId'] ?? json['userId'] ?? json['user_id'],
       ),
-      rating: _emptyToNull(
-        json['rating'] ?? json['averageRating'] ?? json['ratingAverage'],
-      ),
-      reviewCount: _emptyToNull(
-        json['reviewCount'] ?? json['review_count'] ?? json['reviewsCount'],
-      ),
+      rating: rating,
+      reviewCount: reviewCount,
+      reviews: reviews,
     );
   }
 }

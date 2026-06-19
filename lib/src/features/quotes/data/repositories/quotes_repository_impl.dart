@@ -75,6 +75,26 @@ class QuotesRepositoryImpl implements QuotesRepository {
   Future<Result<void>> declineRequest(String requestId) =>
       _run(() => _remoteDataSource.declineRequest(requestId));
 
+  @override
+  Future<Result<void>> providerConfirmCompletion(String proposalId) =>
+      _run(() => _remoteDataSource.providerConfirmCompletion(proposalId));
+
+  @override
+  Future<Result<void>> clientConfirmCompletion(String proposalId) =>
+      _run(() => _remoteDataSource.clientConfirmCompletion(proposalId));
+
+  @override
+  Future<Result<void>> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  }) =>
+      _run(() => _remoteDataSource.submitReview(
+            serviceId: serviceId,
+            rating: rating,
+            comment: comment,
+          ));
+
   Future<Result<T>> _run<T>(Future<T> Function() fn) async {
     try {
       return Success(await fn());

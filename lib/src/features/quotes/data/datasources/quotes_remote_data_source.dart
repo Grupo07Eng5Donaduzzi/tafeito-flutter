@@ -19,6 +19,13 @@ abstract interface class QuotesRemoteDataSource {
   Future<QuoteDto> rejectProposal(String proposalId, {String? reason});
   Future<QuoteDto> contestProposal(String proposalId, String reason);
   Future<void> declineRequest(String requestId);
+  Future<void> providerConfirmCompletion(String proposalId);
+  Future<void> clientConfirmCompletion(String proposalId);
+  Future<void> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  });
 }
 
 class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
@@ -116,6 +123,31 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
   @override
   Future<void> declineRequest(String requestId) async {
     await _apiClient.post(ApiPaths.declineBudgetRequest(requestId));
+  }
+
+  @override
+  Future<void> providerConfirmCompletion(String proposalId) async {
+    await _apiClient.patch(ApiPaths.providerConfirmProposal(proposalId));
+  }
+
+  @override
+  Future<void> clientConfirmCompletion(String proposalId) async {
+    await _apiClient.patch(ApiPaths.clientConfirmProposal(proposalId));
+  }
+
+  @override
+  Future<void> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  }) async {
+    await _apiClient.post(
+      ApiPaths.serviceReviews(serviceId),
+      body: {
+        'rating': rating,
+        if (comment != null && comment.isNotEmpty) 'comment': comment,
+      },
+    );
   }
 
   List<QuoteDto> _extractBudgetRequests(Object? response) {

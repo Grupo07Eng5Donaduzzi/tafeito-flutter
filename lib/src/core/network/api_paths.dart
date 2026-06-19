@@ -23,6 +23,7 @@ class ApiPaths {
   static const passwordRecoveryReset = '/auth/password-recovery/reset';
 
   static const services = '/v1/services';
+  static const servicesMine = '/v1/services/mine';
   static const serviceCategories = '/v1/services/categories';
   static String service(String id) => '/v1/services/$id';
   static String servicePhoto(String id) => '/v1/services/$id/photo';
