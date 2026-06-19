@@ -15,6 +15,7 @@ import '../../../../features/services/presentation/viewmodels/services_view_mode
 import '../../../../features/services/presentation/views/service_detail_page.dart';
 import '../../../../features/services/presentation/views/service_form_page.dart';
 import '../views/chat_page.dart';
+import '../views/chat_thread_page.dart';
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({
@@ -280,12 +281,33 @@ class _InProgressTabState extends State<_InProgressTab> {
     );
   }
 
-  void _openChat() {
+  void _openChat(QuoteDto proposal) {
+    final chatId = proposal.linkedChatId;
+    if (chatId == null || chatId.isEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatPage(
+            sessionManager: widget.sessionManager,
+            chatRepository: widget.chatRepository,
+            quotesRepository: widget.quotesRepository,
+          ),
+        ),
+      );
+      return;
+    }
+    final currentUserId = widget.sessionManager.session?.user.id ?? '';
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ChatPage(
-          sessionManager: widget.sessionManager,
+        builder: (_) => ChatThreadPage(
+          conversationId: chatId,
+          recipientId: proposal.otherPartyId ?? '',
+          otherPartyName: proposal.otherPartyName ?? 'Contato',
+          currentUserId: currentUserId,
           chatRepository: widget.chatRepository,
+          proposalId: proposal.id,
+          proposalStatus: proposal.status,
+          isProvider: widget.isProvider,
+          quotesRepository: widget.quotesRepository,
         ),
       ),
     );
@@ -324,7 +346,7 @@ class _InProgressTabState extends State<_InProgressTab> {
             proposal: proposal,
             isProvider: widget.isProvider,
             actionLoading: _actionLoading,
-            onChat: _openChat,
+            onChat: () => _openChat(proposal),
             onConfirm: widget.isProvider
                 ? () => _providerConfirm(proposal)
                 : () => _clientConfirm(proposal),

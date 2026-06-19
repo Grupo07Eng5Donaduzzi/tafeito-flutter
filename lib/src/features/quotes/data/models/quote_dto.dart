@@ -5,6 +5,7 @@ class QuoteDto {
     required this.status,
     required this.createdAt,
     this.otherPartyName,
+    this.otherPartyId,
     this.description,
     this.proposedValue,
     this.estimatedHoursValue,
@@ -24,6 +25,7 @@ class QuoteDto {
   final String status;
   final String createdAt;
   final String? otherPartyName;
+  final String? otherPartyId;
   final String? description;
   final String? proposedValue; // monetary amount (R$)
   final String? estimatedHoursValue; // estimated hours (for provider view)
@@ -64,6 +66,7 @@ class QuoteDto {
     final budgetRequest = json['budgetRequest'];
     String serviceName;
     String? otherPartyName;
+    String? otherPartyId;
     String? description;
     String? serviceId;
 
@@ -79,6 +82,10 @@ class QuoteDto {
       final provider = budgetRequest['provider'];
       otherPartyName = (client is Map ? client['name']?.toString() : null) ??
           (provider is Map ? provider['name']?.toString() : null);
+      otherPartyId = _emptyToNull(
+        (client is Map ? client['id'] : null) ??
+            (provider is Map ? provider['id'] : null),
+      );
       description = budgetRequest['description']?.toString();
       serviceId = _emptyToNull(
         (service is Map ? service['id'] : null) ??
@@ -118,6 +125,7 @@ class QuoteDto {
       proposedValue: proposedValue,
       estimatedHoursValue: estimatedHoursValue,
       otherPartyName: otherPartyName,
+      otherPartyId: otherPartyId,
       description: description,
       paymentId: _emptyToNull(json['paymentId']),
       qrCode: _emptyToNull(json['qrCode']),

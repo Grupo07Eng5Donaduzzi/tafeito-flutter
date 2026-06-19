@@ -3,6 +3,7 @@ import '../../../../core/result/result.dart';
 import '../../domain/repositories/quotes_repository.dart';
 import '../datasources/quotes_remote_data_source.dart';
 import '../models/create_quote_request.dart';
+import '../models/negotiation_message_dto.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
@@ -94,6 +95,16 @@ class QuotesRepositoryImpl implements QuotesRepository {
             rating: rating,
             comment: comment,
           ));
+
+  @override
+  Future<Result<List<NegotiationMessageDto>>> getNegotiationMessages(
+          String proposalId) =>
+      _runList(() => _remoteDataSource.getNegotiationMessages(proposalId));
+
+  @override
+  Future<Result<NegotiationMessageDto>> sendRevisedProposal(
+          String proposalId, double amount) =>
+      _run(() => _remoteDataSource.sendRevisedProposal(proposalId, amount));
 
   Future<Result<T>> _run<T>(Future<T> Function() fn) async {
     try {

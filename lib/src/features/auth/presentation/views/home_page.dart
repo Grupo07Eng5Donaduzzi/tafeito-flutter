@@ -881,10 +881,18 @@ class _ReceivedCard extends StatelessWidget {
     controller.dispose();
 
     if (submitted == true) {
-      viewModel.negotiate(
+      final ok = await viewModel.negotiate(
         quote.id,
         counterProposal: reason.isEmpty ? null : reason,
       );
+      if (ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Proposta enviada para negociação. Acesse o Chat para conversar.'),
+          ),
+        );
+      }
     }
   }
 }

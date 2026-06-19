@@ -1,6 +1,7 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_paths.dart';
 import '../models/create_quote_request.dart';
+import '../models/negotiation_message_dto.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
@@ -26,6 +27,9 @@ abstract interface class QuotesRemoteDataSource {
     required int rating,
     String? comment,
   });
+  Future<List<NegotiationMessageDto>> getNegotiationMessages(String proposalId);
+  Future<NegotiationMessageDto> sendRevisedProposal(
+      String proposalId, double amount);
 }
 
 class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
@@ -148,6 +152,31 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
         if (comment != null && comment.isNotEmpty) 'comment': comment,
       },
     );
+  }
+
+  @override
+  Future<List<NegotiationMessageDto>> getNegotiationMessages(
+      String proposalId) async {
+    final response =
+        await _apiClient.get(ApiPaths.negotiationMessages(proposalId));
+    final unwrapped = unwrapJsonData(response);
+    final list = unwrapped is List ? asJsonList(unwrapped) : <Object?>[];
+    return list
+        .whereType<Map>()
+        .map((json) => NegotiationMessageDto.fromJson(
+            json.map((k, v) => MapEntry(k.toString(), v))))
+        .toList();
+  }
+
+  @override
+  Future<NegotiationMessageDto> sendRevisedProposal(
+      String proposalId, double amount) async {
+    final response = await _apiClient.post(
+      ApiPaths.revisedProposal(proposalId),
+      body: {'amount': amount, 'message': ''},
+    );
+    return NegotiationMessageDto.fromJson(
+        asJsonObject(unwrapJsonData(response)));
   }
 
   List<QuoteDto> _extractBudgetRequests(Object? response) {
