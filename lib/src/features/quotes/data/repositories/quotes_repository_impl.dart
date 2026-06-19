@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../../core/network/api_client.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/repositories/quotes_repository.dart';
@@ -105,6 +107,23 @@ class QuotesRepositoryImpl implements QuotesRepository {
   Future<Result<NegotiationMessageDto>> sendRevisedProposal(
           String proposalId, double amount) =>
       _run(() => _remoteDataSource.sendRevisedProposal(proposalId, amount));
+
+  @override
+  Future<Result<List<QuoteDto>>> getClientHistory() =>
+      _runList(() => _remoteDataSource.getClientHistory());
+
+  @override
+  Future<Result<List<QuoteDto>>> getProviderHistory() =>
+      _runList(() => _remoteDataSource.getProviderHistory());
+
+  @override
+  Future<Result<void>> uploadInvoice(
+          String proposalId, Uint8List bytes, String fileName) =>
+      _run(() => _remoteDataSource.uploadInvoice(proposalId, bytes, fileName));
+
+  @override
+  Future<Result<Uint8List>> downloadInvoice(String proposalId) =>
+      _run(() => _remoteDataSource.downloadInvoice(proposalId));
 
   Future<Result<T>> _run<T>(Future<T> Function() fn) async {
     try {

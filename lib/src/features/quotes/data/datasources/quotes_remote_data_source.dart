@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_paths.dart';
 import '../models/create_quote_request.dart';
@@ -30,6 +32,11 @@ abstract interface class QuotesRemoteDataSource {
   Future<List<NegotiationMessageDto>> getNegotiationMessages(String proposalId);
   Future<NegotiationMessageDto> sendRevisedProposal(
       String proposalId, double amount);
+  Future<List<QuoteDto>> getClientHistory();
+  Future<List<QuoteDto>> getProviderHistory();
+  Future<void> uploadInvoice(
+      String proposalId, Uint8List bytes, String fileName);
+  Future<Uint8List> downloadInvoice(String proposalId);
 }
 
 class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
@@ -178,6 +185,37 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
     return NegotiationMessageDto.fromJson(
         asJsonObject(unwrapJsonData(response)));
   }
+
+  @override
+  Future<List<QuoteDto>> getClientHistory() async {
+    final response = await _apiClient.get(ApiPaths.clientProposalHistory);
+    return _extractProposals(response);
+  }
+
+  @override
+  Future<List<QuoteDto>> getProviderHistory() async {
+    final response = await _apiClient.get(ApiPaths.providerProposalHistory);
+    return _extractProposals(response);
+  }
+
+  @override
+  Future<void> uploadInvoice(
+      String proposalId, Uint8List bytes, String fileName) async {
+    await _apiClient.multipartPost(
+      ApiPaths.proposalInvoice(proposalId),
+      files: [
+        MultipartFilePayload(
+          fieldName: 'file',
+          fileName: fileName,
+          bytes: bytes,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<Uint8List> downloadInvoice(String proposalId) =>
+      _apiClient.getBytes(ApiPaths.proposalInvoice(proposalId));
 
   List<QuoteDto> _extractBudgetRequests(Object? response) {
     final items = _toList(response);

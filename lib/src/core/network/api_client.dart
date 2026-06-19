@@ -41,6 +41,8 @@ abstract interface class ApiClient {
     JsonObject? fields,
     Map<String, String?>? queryParameters,
   });
+
+  Future<Uint8List> getBytes(String path);
 }
 
 class MultipartFilePayload {
@@ -214,6 +216,21 @@ class HttpApiClient implements ApiClient {
     return jsonDecode(utf8.decode(response.bodyBytes)) as Object?;
   }
 
+  @override
+  Future<Uint8List> getBytes(String path) async {
+    final request = http.Request('GET', _resolve(path, null));
+    request.headers.addAll(await _headers(jsonContent: false));
+    final streamedResponse = await _httpClient.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiClientException(
+        statusCode: response.statusCode,
+        message: _readErrorMessage(response),
+      );
+    }
+    return response.bodyBytes;
+  }
+
   Future<Map<String, String>> _headers({bool jsonContent = true}) async {
     final accessToken = await Future<String?>.value(
       _accessTokenProvider?.call(),
@@ -324,6 +341,11 @@ class UnimplementedApiClient implements ApiClient {
     JsonObject? fields,
     Map<String, String?>? queryParameters,
   }) {
+    return _throw(path);
+  }
+
+  @override
+  Future<Uint8List> getBytes(String path) {
     return _throw(path);
   }
 

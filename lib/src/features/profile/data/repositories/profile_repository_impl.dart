@@ -62,15 +62,9 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
-  Future<Result<UserDto>> becomeProvider({
-    required String pixKey,
-    required double hourlyRate,
-  }) async {
+  Future<Result<UserDto>> becomeProvider({required String pixKey}) async {
     try {
-      final user = await remoteDataSource.becomeProvider(
-        pixKey: pixKey,
-        hourlyRate: hourlyRate,
-      );
+      final user = await remoteDataSource.becomeProvider(pixKey: pixKey);
       return Success(user);
     } on Exception {
       return const Failure(

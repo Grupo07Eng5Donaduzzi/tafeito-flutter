@@ -1,11 +1,17 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:tafeito_flutter/src/core/result/result.dart';
 import 'package:tafeito_flutter/src/core/session/session_manager.dart';
 import 'package:tafeito_flutter/src/core/theme/app_theme.dart';
 import 'package:tafeito_flutter/src/features/profile/domain/repositories/profile_repository.dart';
 import 'package:tafeito_flutter/src/features/profile/presentation/viewmodels/profile_view_model.dart';
+import 'package:tafeito_flutter/src/features/quotes/data/models/quote_dto.dart';
+import 'package:tafeito_flutter/src/features/quotes/domain/repositories/quotes_repository.dart';
 
 import 'login_page.dart';
 
@@ -13,12 +19,16 @@ class ProfilePage extends StatefulWidget {
   const ProfilePage({
     required this.sessionManager,
     required this.profileRepository,
+    this.quotesRepository,
+    this.isProvider = false,
     this.onPixKeySaved,
     super.key,
   });
 
   final SessionManager sessionManager;
   final ProfileRepository profileRepository;
+  final QuotesRepository? quotesRepository;
+  final bool isProvider;
   final VoidCallback? onPixKeySaved;
 
   @override
@@ -28,7 +38,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Uint8List? _profileImageBytes;
   late final ProfileViewModel _viewModel;
-  late final Future<List<MockPayment>> _paymentsFuture;
+  late Future<_PaymentData> _paymentsFuture;
 
   @override
   void initState() {
@@ -36,7 +46,38 @@ class _ProfilePageState extends State<ProfilePage> {
     _viewModel = ProfileViewModel(
       profileRepository: widget.profileRepository,
     )..loadMe();
-    _paymentsFuture = _fetchMockPaymentsFromApi();
+    _paymentsFuture = _loadPayments();
+  }
+
+  @override
+  void didUpdateWidget(ProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isProvider != widget.isProvider) {
+      setState(() => _paymentsFuture = _loadPayments());
+    }
+  }
+
+  Future<_PaymentData> _loadPayments() async {
+    final repo = widget.quotesRepository;
+    if (repo == null) return const _PaymentData([], []);
+
+    final results = await Future.wait([
+      repo.getClientHistory(),
+      if (widget.isProvider) repo.getProviderHistory(),
+    ]);
+
+    final clientHistory = switch (results[0]) {
+      Success<List<QuoteDto>>(:final data) => data,
+      _ => <QuoteDto>[],
+    };
+    final providerHistory = (widget.isProvider && results.length > 1)
+        ? switch (results[1]) {
+            Success<List<QuoteDto>>(:final data) => data,
+            _ => <QuoteDto>[],
+          }
+        : <QuoteDto>[];
+
+    return _PaymentData(clientHistory, providerHistory);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -90,6 +131,34 @@ class _ProfilePageState extends State<ProfilePage> {
     if (_viewModel.errorMessage == null && !hadPixKey) {
       final nowHasPixKey = _viewModel.me?.pixKey?.isNotEmpty ?? false;
       if (nowHasPixKey) widget.onPixKeySaved?.call();
+    }
+  }
+
+  Future<void> _downloadInvoice(BuildContext context, String proposalId) async {
+    final repo = widget.quotesRepository;
+    if (repo == null) return;
+
+    final result = await repo.downloadInvoice(proposalId);
+    if (!context.mounted) return;
+
+    switch (result) {
+      case Success<Uint8List>(:final data):
+        try {
+          final dir = await getTemporaryDirectory();
+          final file = File('${dir.path}/nota_fiscal_$proposalId.pdf');
+          await file.writeAsBytes(data);
+          await OpenFilex.open(file.path);
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Não foi possível abrir a nota fiscal.')),
+            );
+          }
+        }
+      case Failure(:final message):
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -174,6 +243,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 label: 'Email',
                 controller: _viewModel.emailController,
               ),
+              if (widget.isProvider) ...[
+                const SizedBox(height: 16),
+                _buildInputField(
+                  label: 'Chave Pix',
+                  hintText: 'CPF, email, celular ou chave aleatoria',
+                  controller: _viewModel.pixKeyController,
+                ),
+              ],
               if (_viewModel.errorMessage != null) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -210,25 +287,6 @@ class _ProfilePageState extends State<ProfilePage> {
                         'Salvar alteracoes',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Divider(color: Color(0xFFF3F4F6)),
-              ),
-              const Text(
-                'Dados de Prestador',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Configure sua chave Pix para ofertar servicos na plataforma.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-              ),
-              const SizedBox(height: 16),
-              _buildInputField(
-                label: 'Chave Pix',
-                hintText: 'CPF, email, celular ou chave aleatoria',
-                controller: _viewModel.pixKeyController,
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
@@ -312,12 +370,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Divider(color: Color(0xFFF3F4F6)),
               ),
+              // ---- Pagamentos ----
               const Text(
                 'Pagamentos',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              FutureBuilder<List<MockPayment>>(
+              FutureBuilder<_PaymentData>(
                 future: _paymentsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -327,23 +386,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     );
                   }
-
-                  if (snapshot.hasError) {
-                    return const Text(
-                      'Erro ao carregar os pagamentos.',
-                      style: TextStyle(color: Colors.red),
-                    );
-                  }
-
-                  final payments = snapshot.data ?? [];
-                  if (payments.isEmpty) {
-                    return const Text('Nenhum pagamento registrado.');
-                  }
-
-                  return Column(
-                    children: payments
-                        .map((payment) => _buildPaymentItem(payment))
-                        .toList(),
+                  final data = snapshot.data ?? const _PaymentData([], []);
+                  return _PaymentSections(
+                    clientHistory: data.clientHistory,
+                    providerHistory: data.providerHistory,
+                    isProvider: widget.isProvider,
+                    onDownloadInvoice: (proposalId) =>
+                        _downloadInvoice(context, proposalId),
                   );
                 },
               ),
@@ -471,8 +520,98 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+}
 
-  Widget _buildPaymentItem(MockPayment payment) {
+class _PaymentData {
+  const _PaymentData(this.clientHistory, this.providerHistory);
+  final List<QuoteDto> clientHistory;
+  final List<QuoteDto> providerHistory;
+}
+
+class _PaymentSections extends StatelessWidget {
+  const _PaymentSections({
+    required this.clientHistory,
+    required this.providerHistory,
+    required this.isProvider,
+    required this.onDownloadInvoice,
+  });
+
+  final List<QuoteDto> clientHistory;
+  final List<QuoteDto> providerHistory;
+  final bool isProvider;
+  final void Function(String proposalId) onDownloadInvoice;
+
+  @override
+  Widget build(BuildContext context) {
+    if (clientHistory.isEmpty && providerHistory.isEmpty) {
+      return const Text('Nenhum pagamento registrado.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isProvider) ...[
+          const Text(
+            'Pagamentos realizados',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (clientHistory.isEmpty)
+          const Text('Nenhum pagamento realizado.')
+        else
+          ...clientHistory.map((q) => _PaymentItem(
+                quote: q,
+                onDownloadInvoice: q.invoiceFile != null
+                    ? () => onDownloadInvoice(q.id)
+                    : null,
+              )),
+        if (isProvider) ...[
+          const SizedBox(height: 20),
+          const Text(
+            'Recebimentos',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          if (providerHistory.isEmpty)
+            const Text('Nenhum recebimento registrado.')
+          else
+            ...providerHistory.map((q) => _PaymentItem(
+                  quote: q,
+                  onDownloadInvoice: null,
+                )),
+        ],
+      ],
+    );
+  }
+}
+
+class _PaymentItem extends StatelessWidget {
+  const _PaymentItem({
+    required this.quote,
+    this.onDownloadInvoice,
+  });
+
+  final QuoteDto quote;
+  final VoidCallback? onDownloadInvoice;
+
+  String get _formattedDate {
+    try {
+      final dt = DateTime.parse(quote.createdAt);
+      return '${dt.day.toString().padLeft(2, '0')}/'
+          '${dt.month.toString().padLeft(2, '0')}/'
+          '${dt.year}';
+    } catch (_) {
+      return quote.createdAt;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final otherParty = quote.otherPartyName ?? 'Contato';
+    final amount = quote.proposedValue != null
+        ? 'R\$ ${double.tryParse(quote.proposedValue!)?.toStringAsFixed(2) ?? quote.proposedValue}'
+        : '';
+
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
@@ -481,69 +620,70 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                payment.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      quote.serviceName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$otherParty · $_formattedDate',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                payment.authorDate,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+              if (amount.isNotEmpty)
+                Text(
+                  amount,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
-              ),
             ],
           ),
-          Text(
-            payment.amount,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+          if (onDownloadInvoice != null) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onDownloadInvoice,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.download_outlined,
+                      size: 16, color: AppTheme.primary),
+                  SizedBox(width: 4),
+                  Text(
+                    'Ver nota fiscal',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
-
-  Future<List<MockPayment>> _fetchMockPaymentsFromApi() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
-
-    return [
-      MockPayment(
-        title: 'Plantio de jardim',
-        authorDate: 'Ana - 18/03/2026',
-        amount: 'R\$ 100,00',
-      ),
-      MockPayment(
-        title: 'Poda de arvore',
-        authorDate: 'Carlos - 15/03/2026',
-        amount: 'R\$ 250,00',
-      ),
-    ];
-  }
-}
-
-class MockPayment {
-  MockPayment({
-    required this.title,
-    required this.authorDate,
-    required this.amount,
-  });
-
-  final String title;
-  final String authorDate;
-  final String amount;
 }

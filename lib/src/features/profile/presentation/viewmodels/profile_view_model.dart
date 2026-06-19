@@ -154,7 +154,7 @@ class ProfileViewModel extends ChangeNotifier {
     );
 
     switch (result) {
-      case Success(:final data):
+      case Success():
         _successMessage = 'Senha atualizada com sucesso.';
         currentPasswordController.clear();
         newPasswordController.clear();
