@@ -18,6 +18,7 @@ class QuoteDto {
     this.ticketUrl,
     this.linkedChatId,
     this.serviceId,
+    this.invoiceFile,
   });
 
   final String id;
@@ -38,6 +39,7 @@ class QuoteDto {
   final String? ticketUrl;
   final String? linkedChatId;
   final String? serviceId;
+  final String? invoiceFile;
 
   // From BudgetRequestDto (budget-requests endpoints)
   factory QuoteDto.fromBudgetRequest(Map<String, Object?> json) {
@@ -133,6 +135,7 @@ class QuoteDto {
       ticketUrl: _emptyToNull(json['ticketUrl']),
       linkedChatId: _emptyToNull(json['linkedChatId']),
       serviceId: serviceId,
+      invoiceFile: _emptyToNull(json['invoiceFile']),
     );
   }
 }

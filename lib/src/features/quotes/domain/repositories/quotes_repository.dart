@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../../core/result/result.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/models/create_quote_request.dart';
@@ -53,6 +55,19 @@ abstract interface class QuotesRepository {
     required int rating,
     String? comment,
   });
+
+  /// Completed proposals where the current user was the client (payment history).
+  Future<Result<List<QuoteDto>>> getClientHistory();
+
+  /// Completed proposals where the current user was the provider (receipts).
+  Future<Result<List<QuoteDto>>> getProviderHistory();
+
+  /// Provider: upload nota fiscal (PDF/XML) for a completed proposal.
+  Future<Result<void>> uploadInvoice(
+      String proposalId, Uint8List bytes, String fileName);
+
+  /// Download nota fiscal bytes for a completed proposal.
+  Future<Result<Uint8List>> downloadInvoice(String proposalId);
 
   /// List negotiation messages for a proposal (NEGOTIATING status).
   Future<Result<List<NegotiationMessageDto>>> getNegotiationMessages(

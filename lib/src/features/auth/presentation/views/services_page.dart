@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/result/result.dart';
@@ -238,14 +239,28 @@ class _InProgressTabState extends State<_InProgressTab> {
     final result =
         await widget.quotesRepository.providerConfirmCompletion(proposal.id);
     if (!mounted) return;
+    setState(() => _actionLoading = false);
     switch (result) {
       case Success():
         await _load();
+        if (mounted) {
+          await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            builder: (_) => _InvoiceUploadSheet(
+              proposalId: proposal.id,
+              quotesRepository: widget.quotesRepository,
+            ),
+          );
+        }
       case Failure(:final message):
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(message)));
     }
-    if (mounted) setState(() => _actionLoading = false);
   }
 
   Future<void> _clientConfirm(QuoteDto proposal) async {
@@ -1151,6 +1166,138 @@ class _MyServiceCard extends StatelessWidget {
                   color: AppTheme.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Invoice upload sheet (shown after provider confirms completion)
+// ---------------------------------------------------------------------------
+
+class _InvoiceUploadSheet extends StatefulWidget {
+  const _InvoiceUploadSheet({
+    required this.proposalId,
+    required this.quotesRepository,
+  });
+
+  final String proposalId;
+  final QuotesRepository quotesRepository;
+
+  @override
+  State<_InvoiceUploadSheet> createState() => _InvoiceUploadSheetState();
+}
+
+class _InvoiceUploadSheetState extends State<_InvoiceUploadSheet> {
+  bool _uploading = false;
+  String? _pickedFileName;
+
+  Future<void> _pick() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'xml'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    setState(() {
+      _uploading = true;
+      _pickedFileName = file.name;
+    });
+
+    final uploadResult = await widget.quotesRepository.uploadInvoice(
+      widget.proposalId,
+      file.bytes!,
+      file.name,
+    );
+
+    if (!mounted) return;
+    setState(() => _uploading = false);
+
+    switch (uploadResult) {
+      case Success():
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nota fiscal enviada com sucesso.')),
+        );
+        Navigator.of(context).pop();
+      case Failure(:final message):
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        24,
+        20,
+        24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Nota fiscal',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Deseja enviar uma nota fiscal para o cliente? (opcional)',
+            style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+          ),
+          const SizedBox(height: 20),
+          if (_pickedFileName != null && _uploading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Enviando: $_pickedFileName…',
+                style: const TextStyle(
+                    fontSize: 13, color: AppTheme.textMuted),
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: AppSecondaryButton(
+                  label: 'Pular',
+                  dark: false,
+                  onPressed: _uploading
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _uploading ? null : _pick,
+                  icon: _uploading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.upload_file, size: 18),
+                  label: Text(_uploading ? 'Enviando…' : 'Escolher arquivo'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
                 ),
               ),
             ],

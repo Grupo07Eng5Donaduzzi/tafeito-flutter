@@ -14,10 +14,7 @@ abstract interface class ProfileRemoteDataSource {
     required UpdateUserRequest request,
   });
 
-  Future<UserDto> becomeProvider({
-    required String pixKey,
-    required double hourlyRate,
-  });
+  Future<UserDto> becomeProvider({required String pixKey});
 
   Future<UserDto> uploadAvatar({
     required Uint8List bytes,
@@ -51,16 +48,10 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
   }
 
   @override
-  Future<UserDto> becomeProvider({
-    required String pixKey,
-    required double hourlyRate,
-  }) async {
+  Future<UserDto> becomeProvider({required String pixKey}) async {
     await _apiClient.patch(
       ApiPaths.becomeProvider,
-      body: {
-        'pixKey': pixKey,
-        'hourlyRate': hourlyRate,
-      },
+      body: {'pixKey': pixKey},
     );
 
     return getMe();
