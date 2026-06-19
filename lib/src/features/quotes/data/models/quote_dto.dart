@@ -5,6 +5,7 @@ class QuoteDto {
     required this.status,
     required this.createdAt,
     this.otherPartyName,
+    this.otherPartyId,
     this.description,
     this.proposedValue,
     this.estimatedHoursValue,
@@ -15,6 +16,8 @@ class QuoteDto {
     this.qrCode,
     this.qrCodeBase64,
     this.ticketUrl,
+    this.linkedChatId,
+    this.serviceId,
   });
 
   final String id;
@@ -22,6 +25,7 @@ class QuoteDto {
   final String status;
   final String createdAt;
   final String? otherPartyName;
+  final String? otherPartyId;
   final String? description;
   final String? proposedValue; // monetary amount (R$)
   final String? estimatedHoursValue; // estimated hours (for provider view)
@@ -32,6 +36,8 @@ class QuoteDto {
   final String? qrCode;
   final String? qrCodeBase64;
   final String? ticketUrl;
+  final String? linkedChatId;
+  final String? serviceId;
 
   // From BudgetRequestDto (budget-requests endpoints)
   factory QuoteDto.fromBudgetRequest(Map<String, Object?> json) {
@@ -60,7 +66,9 @@ class QuoteDto {
     final budgetRequest = json['budgetRequest'];
     String serviceName;
     String? otherPartyName;
+    String? otherPartyId;
     String? description;
+    String? serviceId;
 
     if (budgetRequest is Map) {
       final service = budgetRequest['service'];
@@ -74,7 +82,15 @@ class QuoteDto {
       final provider = budgetRequest['provider'];
       otherPartyName = (client is Map ? client['name']?.toString() : null) ??
           (provider is Map ? provider['name']?.toString() : null);
+      otherPartyId = _emptyToNull(
+        (client is Map ? client['id'] : null) ??
+            (provider is Map ? provider['id'] : null),
+      );
       description = budgetRequest['description']?.toString();
+      serviceId = _emptyToNull(
+        (service is Map ? service['id'] : null) ??
+            budgetRequest['serviceId'],
+      );
     } else {
       final reqId = json['requestId']?.toString() ?? '';
       serviceName =
@@ -109,11 +125,14 @@ class QuoteDto {
       proposedValue: proposedValue,
       estimatedHoursValue: estimatedHoursValue,
       otherPartyName: otherPartyName,
+      otherPartyId: otherPartyId,
       description: description,
       paymentId: _emptyToNull(json['paymentId']),
       qrCode: _emptyToNull(json['qrCode']),
       qrCodeBase64: _emptyToNull(json['qrCodeBase64']),
       ticketUrl: _emptyToNull(json['ticketUrl']),
+      linkedChatId: _emptyToNull(json['linkedChatId']),
+      serviceId: serviceId,
     );
   }
 }

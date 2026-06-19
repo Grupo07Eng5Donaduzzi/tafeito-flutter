@@ -1,6 +1,7 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_paths.dart';
 import '../models/create_quote_request.dart';
+import '../models/negotiation_message_dto.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
@@ -18,7 +19,17 @@ abstract interface class QuotesRemoteDataSource {
   Future<PaymentCheckDto> checkPayment(String proposalId);
   Future<QuoteDto> rejectProposal(String proposalId, {String? reason});
   Future<QuoteDto> contestProposal(String proposalId, String reason);
-  Future<void> cancelRequest(String requestId);
+  Future<void> declineRequest(String requestId);
+  Future<void> providerConfirmCompletion(String proposalId);
+  Future<void> clientConfirmCompletion(String proposalId);
+  Future<void> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  });
+  Future<List<NegotiationMessageDto>> getNegotiationMessages(String proposalId);
+  Future<NegotiationMessageDto> sendRevisedProposal(
+      String proposalId, double amount);
 }
 
 class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
@@ -114,11 +125,58 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
   }
 
   @override
-  Future<void> cancelRequest(String requestId) async {
-    await _apiClient.patch(
-      ApiPaths.cancelBudgetRequest(requestId),
-      body: {'reason': 'Cancelado pelo prestador'},
+  Future<void> declineRequest(String requestId) async {
+    await _apiClient.post(ApiPaths.declineBudgetRequest(requestId));
+  }
+
+  @override
+  Future<void> providerConfirmCompletion(String proposalId) async {
+    await _apiClient.patch(ApiPaths.providerConfirmProposal(proposalId));
+  }
+
+  @override
+  Future<void> clientConfirmCompletion(String proposalId) async {
+    await _apiClient.patch(ApiPaths.clientConfirmProposal(proposalId));
+  }
+
+  @override
+  Future<void> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  }) async {
+    await _apiClient.post(
+      ApiPaths.serviceReviews(serviceId),
+      body: {
+        'rating': rating,
+        if (comment != null && comment.isNotEmpty) 'comment': comment,
+      },
     );
+  }
+
+  @override
+  Future<List<NegotiationMessageDto>> getNegotiationMessages(
+      String proposalId) async {
+    final response =
+        await _apiClient.get(ApiPaths.negotiationMessages(proposalId));
+    final unwrapped = unwrapJsonData(response);
+    final list = unwrapped is List ? asJsonList(unwrapped) : <Object?>[];
+    return list
+        .whereType<Map>()
+        .map((json) => NegotiationMessageDto.fromJson(
+            json.map((k, v) => MapEntry(k.toString(), v))))
+        .toList();
+  }
+
+  @override
+  Future<NegotiationMessageDto> sendRevisedProposal(
+      String proposalId, double amount) async {
+    final response = await _apiClient.post(
+      ApiPaths.revisedProposal(proposalId),
+      body: {'amount': amount, 'message': ''},
+    );
+    return NegotiationMessageDto.fromJson(
+        asJsonObject(unwrapJsonData(response)));
   }
 
   List<QuoteDto> _extractBudgetRequests(Object? response) {

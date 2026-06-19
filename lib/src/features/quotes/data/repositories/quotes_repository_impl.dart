@@ -3,6 +3,7 @@ import '../../../../core/result/result.dart';
 import '../../domain/repositories/quotes_repository.dart';
 import '../datasources/quotes_remote_data_source.dart';
 import '../models/create_quote_request.dart';
+import '../models/negotiation_message_dto.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
@@ -72,8 +73,38 @@ class QuotesRepositoryImpl implements QuotesRepository {
       _run(() => _remoteDataSource.contestProposal(proposalId, reason));
 
   @override
-  Future<Result<void>> cancelRequest(String requestId) =>
-      _run(() => _remoteDataSource.cancelRequest(requestId));
+  Future<Result<void>> declineRequest(String requestId) =>
+      _run(() => _remoteDataSource.declineRequest(requestId));
+
+  @override
+  Future<Result<void>> providerConfirmCompletion(String proposalId) =>
+      _run(() => _remoteDataSource.providerConfirmCompletion(proposalId));
+
+  @override
+  Future<Result<void>> clientConfirmCompletion(String proposalId) =>
+      _run(() => _remoteDataSource.clientConfirmCompletion(proposalId));
+
+  @override
+  Future<Result<void>> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  }) =>
+      _run(() => _remoteDataSource.submitReview(
+            serviceId: serviceId,
+            rating: rating,
+            comment: comment,
+          ));
+
+  @override
+  Future<Result<List<NegotiationMessageDto>>> getNegotiationMessages(
+          String proposalId) =>
+      _runList(() => _remoteDataSource.getNegotiationMessages(proposalId));
+
+  @override
+  Future<Result<NegotiationMessageDto>> sendRevisedProposal(
+          String proposalId, double amount) =>
+      _run(() => _remoteDataSource.sendRevisedProposal(proposalId, amount));
 
   Future<Result<T>> _run<T>(Future<T> Function() fn) async {
     try {

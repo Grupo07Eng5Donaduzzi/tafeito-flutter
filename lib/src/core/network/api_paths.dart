@@ -23,6 +23,7 @@ class ApiPaths {
   static const passwordRecoveryReset = '/auth/password-recovery/reset';
 
   static const services = '/v1/services';
+  static const servicesMine = '/v1/services/mine';
   static const serviceCategories = '/v1/services/categories';
   static String service(String id) => '/v1/services/$id';
   static String servicePhoto(String id) => '/v1/services/$id/photo';
@@ -35,6 +36,8 @@ class ApiPaths {
       '/v1/budgetRequests/$id/photos';
   static String cancelBudgetRequest(String id) =>
       '/v1/budgetRequests/$id/cancel';
+  static String declineBudgetRequest(String id) =>
+      '/v1/budgetRequests/$id/providerDecline';
 
   static const proposals = '/v1/proposals';
   static const providerProposals = '/v1/proposals/provider/created';

@@ -1,6 +1,7 @@
 import '../../../../core/result/result.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/models/create_quote_request.dart';
+import '../../data/models/negotiation_message_dto.dart';
 import '../../data/models/quote_dto.dart';
 import '../../data/models/respond_quote_request.dart';
 
@@ -37,6 +38,27 @@ abstract interface class QuotesRepository {
   /// Client: contest/negotiate a proposal.
   Future<Result<QuoteDto>> contestProposal(String proposalId, String reason);
 
-  /// Provider: cancel/reject a budget request.
-  Future<Result<void>> cancelRequest(String requestId);
+  /// Provider: decline a budget request (remove from Solicitados permanently).
+  Future<Result<void>> declineRequest(String requestId);
+
+  /// Provider: confirm service completion (ACCEPTED → PROVIDER_CONFIRMED).
+  Future<Result<void>> providerConfirmCompletion(String proposalId);
+
+  /// Client: confirm service completion (PROVIDER_CONFIRMED → COMPLETED) and release payment.
+  Future<Result<void>> clientConfirmCompletion(String proposalId);
+
+  /// Submit a star rating for a completed service.
+  Future<Result<void>> submitReview({
+    required String serviceId,
+    required int rating,
+    String? comment,
+  });
+
+  /// List negotiation messages for a proposal (NEGOTIATING status).
+  Future<Result<List<NegotiationMessageDto>>> getNegotiationMessages(
+      String proposalId);
+
+  /// Provider: send a revised proposal amount within a negotiation.
+  Future<Result<NegotiationMessageDto>> sendRevisedProposal(
+      String proposalId, double amount);
 }

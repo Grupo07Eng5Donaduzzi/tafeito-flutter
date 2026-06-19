@@ -6,6 +6,7 @@ import '../models/service_dto.dart';
 abstract interface class ServicesRemoteDataSource {
   Future<List<ServiceDto>> findAll({String? category});
   Future<List<ServiceDto>> findMine({required String userId});
+  Future<ServiceDto> findById(String id);
   Future<ServiceDto> create(CreateServiceRequest request);
   Future<ServiceDto> update(String id, CreateServiceRequest request);
   Future<ServiceDto> uploadPhoto({
@@ -36,9 +37,14 @@ class ApiServicesRemoteDataSource implements ServicesRemoteDataSource {
 
   @override
   Future<List<ServiceDto>> findMine({required String userId}) async {
-    final response = await _apiClient.get(ApiPaths.services);
-    final all = _extractList(response);
-    return all.where((s) => s.providerId == userId).toList();
+    final response = await _apiClient.get(ApiPaths.servicesMine);
+    return _extractList(response);
+  }
+
+  @override
+  Future<ServiceDto> findById(String id) async {
+    final response = await _apiClient.get(ApiPaths.service(id));
+    return ServiceDto.fromJson(asJsonObject(unwrapJsonData(response)));
   }
 
   @override
