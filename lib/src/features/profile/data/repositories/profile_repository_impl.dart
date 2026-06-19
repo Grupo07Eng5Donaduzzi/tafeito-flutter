@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/result/result.dart';
 import '../../data/datasources/profile_remote_data_source.dart';
 import '../../data/models/update_user_request.dart';
@@ -31,6 +32,32 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return Success(user);
     } on Exception {
       return const Failure('Não foi possível salvar suas alterações agora.');
+    }
+  }
+
+  @override
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    try {
+      await remoteDataSource.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        confirmNewPassword: confirmNewPassword,
+      );
+      return const Success(null);
+    } on ApiClientException catch (exception) {
+      if (exception.message.contains('Invalid credentials') ||
+          exception.message.contains('invalid credentials') ||
+          exception.message.contains('senha atual') ||
+          exception.message.contains('Senha atual')) {
+        return const Failure('Senha atual não é válida.');
+      }
+      return Failure(exception.message);
+    } on Exception {
+      return const Failure('Não foi possível atualizar sua senha agora.');
     }
   }
 

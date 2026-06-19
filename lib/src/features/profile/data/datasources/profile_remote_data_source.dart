@@ -14,6 +14,12 @@ abstract interface class ProfileRemoteDataSource {
     required UpdateUserRequest request,
   });
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  });
+
   Future<UserDto> becomeProvider({required String pixKey});
 
   Future<UserDto> uploadAvatar({
@@ -55,6 +61,22 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
     );
 
     return getMe();
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    await _apiClient.patch(
+      '/v1/auth/change-password',
+      body: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+        'confirmNewPassword': confirmNewPassword,
+      },
+    );
   }
 
   @override

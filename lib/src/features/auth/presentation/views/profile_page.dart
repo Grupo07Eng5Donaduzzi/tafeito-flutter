@@ -301,19 +301,42 @@ class _ProfilePageState extends State<ProfilePage> {
                 label: 'Senha atual',
                 hintText: 'Digite a senha atual',
                 isPassword: true,
+                controller: _viewModel.currentPasswordController,
               ),
               const SizedBox(height: 16),
               _buildInputField(
                 label: 'Nova senha',
                 hintText: 'Digite a nova senha',
                 isPassword: true,
+                controller: _viewModel.newPasswordController,
               ),
               const SizedBox(height: 16),
               _buildInputField(
                 label: 'Confirmar nova senha',
                 hintText: 'Repita a nova senha',
                 isPassword: true,
+                controller: _viewModel.confirmNewPasswordController,
               ),
+              if (_viewModel.errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _viewModel.errorMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              if (_viewModel.successMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _viewModel.successMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFF16A34A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -327,11 +350,21 @@ class _ProfilePageState extends State<ProfilePage> {
                     vertical: 12,
                   ),
                 ),
-                onPressed: () {},
-                child: const Text(
-                  'Atualizar senha',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+                onPressed: _viewModel.isLoading ? null : () async {
+                  await _viewModel.changePassword();
+                },
+                child: _viewModel.isLoading
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Atualizar senha',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
