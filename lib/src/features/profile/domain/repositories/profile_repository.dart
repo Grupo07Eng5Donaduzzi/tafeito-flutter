@@ -12,6 +12,12 @@ abstract interface class ProfileRepository {
     required UpdateUserRequest request,
   });
 
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  });
+
   Future<Result<UserDto>> becomeProvider({
     required String pixKey,
     required double hourlyRate,
