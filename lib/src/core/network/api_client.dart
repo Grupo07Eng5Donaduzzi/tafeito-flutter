@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 typedef JsonObject = Map<String, Object?>;
 
@@ -163,6 +164,7 @@ class HttpApiClient implements ApiClient {
           file.fieldName,
           file.bytes,
           filename: file.fileName,
+          contentType: _detectMediaType(file.bytes),
         ),
       );
     }
@@ -270,6 +272,35 @@ class HttpApiClient implements ApiClient {
     }
 
     return 'Erro ${response.statusCode} ao chamar a API.';
+  }
+
+  MediaType _detectMediaType(Uint8List bytes) {
+    if (bytes.length >= 4) {
+      // PNG: 89 50 4E 47
+      if (bytes[0] == 0x89 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x4E &&
+          bytes[3] == 0x47) {
+        return MediaType('image', 'png');
+      }
+      // JPEG: FF D8
+      if (bytes[0] == 0xFF && bytes[1] == 0xD8) {
+        return MediaType('image', 'jpeg');
+      }
+      // WebP: RIFF????WEBP
+      if (bytes[0] == 0x52 &&
+          bytes[1] == 0x49 &&
+          bytes[2] == 0x46 &&
+          bytes[3] == 0x46 &&
+          bytes.length >= 12 &&
+          bytes[8] == 0x57 &&
+          bytes[9] == 0x45 &&
+          bytes[10] == 0x42 &&
+          bytes[11] == 0x50) {
+        return MediaType('image', 'webp');
+      }
+    }
+    return MediaType('application', 'octet-stream');
   }
 }
 

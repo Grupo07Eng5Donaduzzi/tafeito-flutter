@@ -79,13 +79,16 @@ class QuotesHomeViewModel extends ChangeNotifier {
           return;
         }
 
+        final seen = <String>{};
         final allRequests = <QuoteDto>[];
         for (final service in data) {
           final result = await _quotesRepository.findAvailableRequests(
             serviceId: service.id,
           );
           if (result case Success<List<QuoteDto>>(:final data)) {
-            allRequests.addAll(data);
+            for (final req in data) {
+              if (seen.add(req.id)) allRequests.add(req);
+            }
           }
         }
         _requests = allRequests;
@@ -142,7 +145,7 @@ class QuotesHomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     final result = await _quotesRepository.createProposal(
-      CreateProposalRequest(requestId: requestId, estimatedHours: amount),
+      CreateProposalRequest(requestId: requestId, amount: amount),
     );
 
     _actionLoading = false;
@@ -228,7 +231,7 @@ class QuotesHomeViewModel extends ChangeNotifier {
                   otherPartyName: existing.otherPartyName,
                   description: existing.description,
                   proposedValue: existing.proposedValue,
-                  estimatedHoursValue: existing.estimatedHoursValue,
+
                   serviceDate: existing.serviceDate,
                   location: existing.location,
                   photos: existing.photos,

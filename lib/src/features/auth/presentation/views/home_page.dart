@@ -594,9 +594,7 @@ class _SentCard extends StatelessWidget {
               Text(
                 quote.proposedValue != null
                     ? 'R\$ ${quote.proposedValue}'
-                    : quote.estimatedHoursValue != null
-                        ? '${quote.estimatedHoursValue}h'
-                        : 'Pendente',
+                    : 'Pendente',
                 style: const TextStyle(
                   color: AppTheme.textPrimary,
                   fontSize: 20,
@@ -924,7 +922,7 @@ class _RequestCardState extends State<_RequestCard> {
     final value = _priceController.text.trim();
     if (value.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe as horas estimadas.')),
+        const SnackBar(content: Text('Informe o valor da proposta.')),
       );
       return;
     }
@@ -1018,7 +1016,7 @@ class _RequestCardState extends State<_RequestCard> {
           ],
           const SizedBox(height: 14),
           const Text(
-            'Horas estimadas',
+            'Valor da proposta',
             style: TextStyle(
               color: AppTheme.textMuted,
               fontSize: 11,
@@ -1030,8 +1028,8 @@ class _RequestCardState extends State<_RequestCard> {
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
-              hintText: 'Ex: 4',
-              suffixText: 'h',
+              prefixText: 'R\$ ',
+              hintText: '150,00',
             ),
           ),
           const SizedBox(height: 12),
