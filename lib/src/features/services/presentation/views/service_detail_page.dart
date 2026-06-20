@@ -327,15 +327,12 @@ class _BottomBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            SizedBox(
-              width: 128,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop('request_quote'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: const Text('Orçamento'),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop('request_quote'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(148, 48),
               ),
+              child: const Text('Orçamento', maxLines: 1),
             ),
           ],
         ),

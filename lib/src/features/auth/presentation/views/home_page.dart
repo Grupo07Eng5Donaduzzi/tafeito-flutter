@@ -1024,7 +1024,7 @@ class _RequestCardState extends State<_RequestCard> {
           ],
           const SizedBox(height: 14),
           const Text(
-            'Valor proposto (R$)',
+            r'Valor proposto (R$)',
             style: TextStyle(
               color: AppTheme.textMuted,
               fontSize: 11,
