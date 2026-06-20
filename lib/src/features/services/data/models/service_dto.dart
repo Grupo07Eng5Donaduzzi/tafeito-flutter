@@ -130,7 +130,7 @@ String? _emptyToNull(Object? value) {
 String? _unitFromPricingType(String? value) {
   return switch (value?.toUpperCase()) {
     'HOURLY' => 'hora',
-    'MONTHLY' => 'mês',
+    'MONTHLY' => 'mes',
     'DAILY' => 'dia',
     _ => value,
   };

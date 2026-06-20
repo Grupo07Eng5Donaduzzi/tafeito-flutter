@@ -24,7 +24,7 @@ const _categories = [
 
 List<String> get serviceCategories => _categories;
 
-const _units = ['hora', 'dia', 'semana', 'mes', 'servico'];
+const _units = ['hora', 'dia', 'mes'];
 List<String> get serviceUnits => _units;
 
 class ServiceFormViewModel extends ChangeNotifier {

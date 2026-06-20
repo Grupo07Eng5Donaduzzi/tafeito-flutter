@@ -44,6 +44,11 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
     super.dispose();
   }
 
+  String _unitLabel(String unit) => switch (unit) {
+        'mes' => 'mês',
+        _ => unit,
+      };
+
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -211,7 +216,7 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                                     .map(
                                       (unit) => DropdownMenuItem(
                                         value: unit,
-                                        child: Text(unit),
+                                        child: Text(_unitLabel(unit)),
                                       ),
                                     )
                                     .toList(),
