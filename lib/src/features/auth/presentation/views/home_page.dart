@@ -930,7 +930,7 @@ class _RequestCardState extends State<_RequestCard> {
     final value = _priceController.text.trim();
     if (value.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe as horas estimadas.')),
+        const SnackBar(content: Text('Informe o valor proposto.')),
       );
       return;
     }
@@ -1024,7 +1024,7 @@ class _RequestCardState extends State<_RequestCard> {
           ],
           const SizedBox(height: 14),
           const Text(
-            'Horas estimadas',
+            'Valor proposto (R$)',
             style: TextStyle(
               color: AppTheme.textMuted,
               fontSize: 11,
@@ -1036,8 +1036,8 @@ class _RequestCardState extends State<_RequestCard> {
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
-              hintText: 'Ex: 4',
-              suffixText: 'h',
+              hintText: 'Ex: 150,00',
+              prefixText: r'R$ ',
             ),
           ),
           const SizedBox(height: 12),

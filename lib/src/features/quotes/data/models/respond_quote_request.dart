@@ -3,15 +3,15 @@ import '../../../../core/network/api_client.dart';
 class CreateProposalRequest {
   const CreateProposalRequest({
     required this.requestId,
-    required this.estimatedHours,
+    required this.amount,
   });
 
   final String requestId;
-  final double estimatedHours;
+  final double amount;
 
   JsonObject toJson() => {
         'requestId': requestId,
-        'estimatedHours': estimatedHours,
+        'amount': amount,
       };
 }
 

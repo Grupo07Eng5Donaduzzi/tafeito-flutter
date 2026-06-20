@@ -142,7 +142,7 @@ class QuotesHomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     final result = await _quotesRepository.createProposal(
-      CreateProposalRequest(requestId: requestId, estimatedHours: amount),
+      CreateProposalRequest(requestId: requestId, amount: amount),
     );
 
     _actionLoading = false;
