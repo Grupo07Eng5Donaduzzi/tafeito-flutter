@@ -5,7 +5,6 @@ import '../../../../core/theme/main_page.dart';
 import '../viewmodels/login_view_model.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_text_field.dart';
-import 'password_recovery_email_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -78,28 +77,6 @@ class _LoginPageState extends State<LoginPage> {
                           obscureText: true,
                           textInputAction: TextInputAction.done,
                           validator: _validatePassword,
-                        ),
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: widget.viewModel.isLoading
-                                ? null
-                                : () {
-                                    Navigator.of(context).pushNamed(
-                                      PasswordRecoveryEmailPage.routeName,
-                                    );
-                                  },
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Text(
-                              'Esqueceu a senha?',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
                         ),
                         const SizedBox(height: 28),
                         if (widget.viewModel.errorMessage != null) ...[

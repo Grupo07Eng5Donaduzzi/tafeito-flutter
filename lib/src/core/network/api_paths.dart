@@ -17,10 +17,7 @@ class ApiPaths {
   static const authRegister = '/v1/auth/register';
   static const authLogin = '/v1/auth/login';
   static const becomeProvider = '/v1/auth/becomeProvider';
-
-  static const passwordRecoveryRequest = '/v1/auth/forgot-password';
-  static const passwordRecoveryVerify = '/auth/password-recovery/verify';
-  static const passwordRecoveryReset = '/auth/password-recovery/reset';
+  static const changePassword = '/v1/auth/change-password';
 
   static const services = '/v1/services';
   static const servicesMine = '/v1/services/mine';
@@ -79,8 +76,6 @@ class ChatApiPaths {
   static String conversation(String id) => '/v1/chat/conversations/$id';
   static String conversationMessages(String conversationId) =>
       '/v1/chat/conversations/$conversationId/messages';
-  static String serviceMessages(String serviceId) =>
-      '/v1/chat/services/$serviceId/messages';
   static String userMessages(String userId) =>
       '/v1/chat/users/$userId/messages';
   static const conversations = '/v1/chat/conversations';

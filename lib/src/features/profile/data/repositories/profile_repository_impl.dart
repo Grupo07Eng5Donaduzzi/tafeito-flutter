@@ -62,6 +62,18 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
+  Future<Result<void>> deleteAccount({required String id}) async {
+    try {
+      await remoteDataSource.deleteAccount(id: id);
+      return const Success(null);
+    } on ApiClientException catch (exception) {
+      return Failure(exception.message);
+    } on Exception {
+      return const Failure('NÃ£o foi possÃ­vel excluir sua conta agora.');
+    }
+  }
+
+  @override
   Future<Result<UserDto>> becomeProvider({required String pixKey}) async {
     try {
       final user = await remoteDataSource.becomeProvider(pixKey: pixKey);

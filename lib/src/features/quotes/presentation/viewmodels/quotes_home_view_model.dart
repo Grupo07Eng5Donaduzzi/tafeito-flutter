@@ -220,6 +220,53 @@ class QuotesHomeViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> rejectSentNegotiation(String proposalId) async {
+    _actionLoading = true;
+    _actionError = null;
+    notifyListeners();
+
+    final result = await _quotesRepository.rejectProposal(
+      proposalId,
+      reason: 'Negociação recusada pelo prestador.',
+    );
+
+    _actionLoading = false;
+    switch (result) {
+      case Success():
+        _sent = List.of(_sent)..removeWhere((quote) => quote.id == proposalId);
+        notifyListeners();
+        return true;
+      case Failure(:final message):
+        _actionError = message;
+        notifyListeners();
+        return false;
+    }
+  }
+
+  Future<bool> reviseSentProposal(String proposalId, double amount) async {
+    _actionLoading = true;
+    _actionError = null;
+    notifyListeners();
+
+    final result = await _quotesRepository.reviseProposal(proposalId, amount);
+
+    _actionLoading = false;
+    switch (result) {
+      case Success(:final data):
+        final index = _sent.indexWhere((quote) => quote.id == proposalId);
+        if (index != -1) {
+          _sent = List.of(_sent)
+            ..[index] = _mergeQuote(_sent[index], data.proposal);
+        }
+        notifyListeners();
+        return true;
+      case Failure(:final message):
+        _actionError = message;
+        notifyListeners();
+        return false;
+    }
+  }
+
   Future<bool> _updateReceived(
     String proposalId,
     Future<Result<QuoteDto>> Function() action,
@@ -236,31 +283,7 @@ class QuotesHomeViewModel extends ChangeNotifier {
         final index = _received.indexWhere((quote) => quote.id == proposalId);
         if (index != -1) {
           final existing = _received[index];
-          final updated = data.serviceName.isEmpty
-              ? QuoteDto(
-                  id: existing.id,
-                  serviceName: existing.serviceName,
-                  status: data.status,
-                  createdAt: existing.createdAt,
-                  otherPartyName: existing.otherPartyName,
-                  description: existing.description,
-                  proposedValue: existing.proposedValue,
-                  estimatedHoursValue: existing.estimatedHoursValue,
-                  serviceDate: existing.serviceDate,
-                  location: existing.location,
-                  photos: existing.photos,
-                  paymentId: data.paymentId ?? existing.paymentId,
-                  qrCode: data.qrCode ?? existing.qrCode,
-                  qrCodeBase64: data.qrCodeBase64 ?? existing.qrCodeBase64,
-                  ticketUrl: data.ticketUrl ?? existing.ticketUrl,
-                  serviceId: data.serviceId ?? existing.serviceId,
-                  invoiceFile: data.invoiceFile ?? existing.invoiceFile,
-                  clientId: data.clientId ?? existing.clientId,
-                  clientName: data.clientName ?? existing.clientName,
-                  providerId: data.providerId ?? existing.providerId,
-                  providerName: data.providerName ?? existing.providerName,
-                )
-              : data;
+          final updated = _mergeQuote(existing, data);
           _received = List.of(_received)..[index] = updated;
         }
         notifyListeners();
@@ -271,4 +294,34 @@ class QuotesHomeViewModel extends ChangeNotifier {
         return false;
     }
   }
+}
+
+QuoteDto _mergeQuote(QuoteDto existing, QuoteDto data) {
+  if (data.serviceName.isNotEmpty) return data;
+
+  return QuoteDto(
+    id: existing.id,
+    serviceName: existing.serviceName,
+    status: data.status,
+    createdAt: existing.createdAt,
+    otherPartyName: existing.otherPartyName,
+    otherPartyId: existing.otherPartyId,
+    description: existing.description,
+    proposedValue: data.proposedValue ?? existing.proposedValue,
+    estimatedHoursValue:
+        data.estimatedHoursValue ?? existing.estimatedHoursValue,
+    serviceDate: existing.serviceDate,
+    location: existing.location,
+    photos: existing.photos,
+    paymentId: data.paymentId ?? existing.paymentId,
+    qrCode: data.qrCode ?? existing.qrCode,
+    qrCodeBase64: data.qrCodeBase64 ?? existing.qrCodeBase64,
+    ticketUrl: data.ticketUrl ?? existing.ticketUrl,
+    serviceId: data.serviceId ?? existing.serviceId,
+    invoiceFile: data.invoiceFile ?? existing.invoiceFile,
+    clientId: data.clientId ?? existing.clientId,
+    clientName: data.clientName ?? existing.clientName,
+    providerId: data.providerId ?? existing.providerId,
+    providerName: data.providerName ?? existing.providerName,
+  );
 }

@@ -51,7 +51,7 @@ O app consome APIs remotas reais do TaFeito:
 
 Principais recursos consumidos:
 
-- Autenticacao e cadastro de usuario.
+- Autenticacao e cadastro de usuario via API principal.
 - Perfil e upload de avatar.
 - Marketplace e cadastro de servicos.
 - Solicitacao e envio de orcamentos.

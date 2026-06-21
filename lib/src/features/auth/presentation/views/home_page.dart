@@ -167,7 +167,8 @@ class _HomePageState extends State<HomePage> {
                   const Spacer(),
                   if (_viewModel.received.any((q) => q.status == 'PENDING'))
                     AppPill(
-                      label: '${_viewModel.received.where((q) => q.status == 'PENDING').length} nova',
+                      label:
+                          '${_viewModel.received.where((q) => q.status == 'PENDING').length} nova',
                       color: AppTheme.primary,
                       textColor: Colors.white,
                     ),
@@ -277,7 +278,8 @@ class _ClientHomeView extends StatelessWidget {
                       const Spacer(),
                       if (viewModel.received.any((q) => q.status == 'PENDING'))
                         AppPill(
-                          label: '${viewModel.received.where((q) => q.status == 'PENDING').length} nova',
+                          label:
+                              '${viewModel.received.where((q) => q.status == 'PENDING').length} nova',
                           color: AppTheme.primary,
                           textColor: Colors.white,
                         ),
@@ -579,6 +581,7 @@ class _SentList extends StatelessWidget {
         itemBuilder: (context, index) {
           return _SentCard(
             quote: viewModel.sent[index],
+            viewModel: viewModel,
             quotesRepository: quotesRepository,
             chatRepository: chatRepository,
             currentUserId: currentUserId,
@@ -593,6 +596,7 @@ class _SentList extends StatelessWidget {
 class _SentCard extends StatefulWidget {
   const _SentCard({
     required this.quote,
+    required this.viewModel,
     required this.quotesRepository,
     required this.chatRepository,
     required this.currentUserId,
@@ -600,6 +604,7 @@ class _SentCard extends StatefulWidget {
   });
 
   final QuoteDto quote;
+  final QuotesHomeViewModel viewModel;
   final QuotesRepository quotesRepository;
   final ChatRepository chatRepository;
   final String currentUserId;
@@ -611,6 +616,11 @@ class _SentCard extends StatefulWidget {
 
 class _SentCardState extends State<_SentCard> {
   bool _openingChat = false;
+
+  bool get _isNegotiating {
+    final status = widget.quote.status.toLowerCase();
+    return status == 'negotiating' || status == 'negociando';
+  }
 
   bool get _canOpenChat {
     final status = widget.quote.status.toLowerCase();
@@ -640,34 +650,207 @@ class _SentCardState extends State<_SentCard> {
       participantId: recipientId,
     );
     if (!mounted) return;
-    setState(() => _openingChat = false);
 
     switch (result) {
       case Success(:final data):
+        setState(() => _openingChat = false);
         if (data.conversationId.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Conversa não encontrada.')),
           );
           return;
         }
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ChatThreadPage(
-              conversationId: data.conversationId,
-              recipientId: recipientId,
-              otherPartyName: widget.quote.partyNameFor(isProvider: true),
-              currentUserId: widget.currentUserId,
-              chatRepository: widget.chatRepository,
-              token: widget.accessToken,
-              isProvider: true,
-              quotesRepository: widget.quotesRepository,
-            ),
-          ),
-        );
+        await _pushChatThread(data.conversationId, recipientId);
       case Failure(:final message):
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
+        final opened = await _openExistingConversation(recipientId);
+        if (!mounted) return;
+        setState(() => _openingChat = false);
+        if (!opened) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(message)));
+        }
     }
+  }
+
+  Future<bool> _openExistingConversation(String recipientId) async {
+    final result = await widget.chatRepository.getConversations();
+    if (!mounted) return false;
+
+    switch (result) {
+      case Success(:final data):
+        for (final conversation in data) {
+          final matchesOther = conversation.otherParticipantId == recipientId;
+          final matchesParticipants =
+              conversation.participantIds.contains(recipientId) &&
+                  conversation.participantIds.contains(widget.currentUserId);
+          if (matchesOther || matchesParticipants) {
+            await _pushChatThread(conversation.id, recipientId);
+            return true;
+          }
+        }
+      case Failure():
+        return false;
+    }
+    return false;
+  }
+
+  Future<void> _pushChatThread(
+    String conversationId,
+    String recipientId,
+  ) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatThreadPage(
+          conversationId: conversationId,
+          recipientId: recipientId,
+          otherPartyName: widget.quote.partyNameFor(isProvider: true),
+          currentUserId: widget.currentUserId,
+          chatRepository: widget.chatRepository,
+          token: widget.accessToken,
+          isProvider: true,
+          quotesRepository: widget.quotesRepository,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _rejectNegotiation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Recusar negociacao'),
+        content: const Text('Deseja recusar esta negociacao?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Recusar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final ok = await widget.viewModel.rejectSentNegotiation(widget.quote.id);
+    if (!mounted || !ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Negociacao recusada.'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
+  }
+
+  Future<void> _showChangeValueSheet() async {
+    final controller = TextEditingController(text: widget.quote.proposedValue);
+    String? error;
+    final amount = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                20 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const AppSheetHandle(),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Alterar valor',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Informe o novo valor para reenviar o orcamento ao cliente.',
+                    style: TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Novo valor',
+                      prefixText: 'R\$ ',
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      style: const TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final text =
+                            controller.text.trim().replaceAll(',', '.');
+                        final value = double.tryParse(text);
+                        if (value == null || value <= 0) {
+                          setSheetState(
+                            () => error = 'Informe um valor valido.',
+                          );
+                          return;
+                        }
+                        Navigator.of(context).pop(value);
+                      },
+                      child: const Text('Reenviar orcamento'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+
+    if (amount == null) return;
+    final ok = await widget.viewModel.reviseSentProposal(
+      widget.quote.id,
+      amount,
+    );
+    if (!mounted || !ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Valor alterado e orcamento reenviado.'),
+        backgroundColor: Color(0xFF16A34A),
+      ),
+    );
   }
 
   @override
@@ -730,9 +913,54 @@ class _SentCardState extends State<_SentCard> {
               width: double.infinity,
               child: AppSecondaryButton(
                 label: _openingChat ? 'Abrindo...' : 'Abrir chat',
-                dark: quote.status.toLowerCase() == 'negotiating' ||
-                    quote.status.toLowerCase() == 'negociando',
+                dark: _isNegotiating,
                 onPressed: _openingChat ? null : _openChat,
+              ),
+            ),
+          ],
+          if (_isNegotiating) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: AppSecondaryButton(
+                    label: 'Recusar',
+                    onPressed: widget.viewModel.actionLoading
+                        ? null
+                        : _rejectNegotiation,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: widget.viewModel.actionLoading
+                        ? null
+                        : _showChangeValueSheet,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(42),
+                    ),
+                    child: widget.viewModel.actionLoading
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Alterar valor'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (widget.viewModel.actionError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              widget.viewModel.actionError!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -970,7 +1198,9 @@ class _ReceivedCard extends StatelessWidget {
 
   Future<void> _negotiate(BuildContext context) async {
     final conversationId = await viewModel.negotiate(quote.id);
-    if (!context.mounted || conversationId == null || conversationId.isEmpty) return;
+    if (!context.mounted || conversationId == null || conversationId.isEmpty) {
+      return;
+    }
     _openChatThread(context, conversationId);
   }
 

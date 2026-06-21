@@ -18,6 +18,8 @@ abstract interface class ProfileRepository {
     required String confirmNewPassword,
   });
 
+  Future<Result<void>> deleteAccount({required String id});
+
   Future<Result<UserDto>> becomeProvider({required String pixKey});
 
   Future<Result<UserDto>> uploadAvatar({

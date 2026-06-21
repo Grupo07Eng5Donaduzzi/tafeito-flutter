@@ -48,11 +48,25 @@ class ApiChatRemoteDataSource implements ChatRemoteDataSource {
   Future<ChatEnsureResponseDto> ensureConversation({
     required String participantId,
   }) async {
-    final response = await _apiClient.post(
-      ChatApiPaths.ensureConversation,
-      body: {'participantId': participantId},
+    Object? response;
+    try {
+      response = await _apiClient.post(
+        ChatApiPaths.ensureConversation,
+        body: {'recipientId': participantId},
+      );
+    } on ApiClientException catch (exception) {
+      final message = exception.message.toLowerCase();
+      if (!message.contains('recipientid')) {
+        rethrow;
+      }
+      response = await _apiClient.post(
+        ChatApiPaths.ensureConversation,
+        body: {'participantId': participantId},
+      );
+    }
+    return ChatEnsureResponseDto.fromJson(
+      asJsonObject(unwrapJsonData(response)),
     );
-    return ChatEnsureResponseDto.fromJson(asJsonObject(unwrapJsonData(response)));
   }
 
   @override

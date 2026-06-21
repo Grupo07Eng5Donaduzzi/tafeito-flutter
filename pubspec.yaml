@@ -7,8 +7,6 @@ environment:
   sdk: ">=3.4.0 <4.0.0"
 
 dependencies:
-  firebase_auth: ^6.5.2
-  firebase_core: ^4.10.0
   flutter:
     sdk: flutter
   flutter_secure_storage: ^10.3.1

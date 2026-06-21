@@ -20,6 +20,8 @@ abstract interface class ProfileRemoteDataSource {
     required String confirmNewPassword,
   });
 
+  Future<void> deleteAccount({required String id});
+
   Future<UserDto> becomeProvider({required String pixKey});
 
   Future<UserDto> uploadAvatar({
@@ -70,13 +72,18 @@ class ApiProfileRemoteDataSource implements ProfileRemoteDataSource {
     required String confirmNewPassword,
   }) async {
     await _apiClient.patch(
-      '/v1/auth/change-password',
+      ApiPaths.changePassword,
       body: {
         'currentPassword': currentPassword,
         'newPassword': newPassword,
         'confirmNewPassword': confirmNewPassword,
       },
     );
+  }
+
+  @override
+  Future<void> deleteAccount({required String id}) async {
+    await _apiClient.delete(ApiPaths.user(id));
   }
 
   @override

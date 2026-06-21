@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'core/network/api_client.dart';
@@ -9,17 +8,10 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/main_page.dart';
 import 'features/auth/data/datasources/auth_local_data_source.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
-import 'features/auth/data/datasources/password_recovery_remote_data_source.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/presentation/viewmodels/login_view_model.dart';
-import 'features/auth/presentation/viewmodels/password_recovery_code_view_model.dart';
-import 'features/auth/presentation/viewmodels/password_recovery_email_view_model.dart';
-import 'features/auth/presentation/viewmodels/password_recovery_new_password_view_model.dart';
 import 'features/auth/presentation/viewmodels/register_view_model.dart';
 import 'features/auth/presentation/views/login_page.dart';
-import 'features/auth/presentation/views/password_recovery_code_page.dart';
-import 'features/auth/presentation/views/password_recovery_email_page.dart';
-import 'features/auth/presentation/views/password_recovery_new_password_page.dart';
 import 'features/auth/presentation/views/register_page.dart';
 import 'features/auth/presentation/widgets/auth_logo.dart';
 import 'features/chat/data/datasources/chat_remote_data_source.dart';
@@ -37,7 +29,6 @@ class TaFeitoApp extends StatefulWidget {
     this.chatApiClient,
     this.authLocalDataSource,
     this.authRemoteDataSource,
-    this.passwordRecoveryRemoteDataSource,
     super.key,
   });
 
@@ -45,7 +36,6 @@ class TaFeitoApp extends StatefulWidget {
   final ApiClient? chatApiClient;
   final AuthLocalDataSource? authLocalDataSource;
   final AuthRemoteDataSource? authRemoteDataSource;
-  final PasswordRecoveryRemoteDataSource? passwordRecoveryRemoteDataSource;
 
   @override
   State<TaFeitoApp> createState() => _TaFeitoAppState();
@@ -83,9 +73,6 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
     _authRepository = AuthRepositoryImpl(
       remoteDataSource: widget.authRemoteDataSource ??
           ApiAuthRemoteDataSource(apiClient: _apiClient),
-      passwordRecoveryRemoteDataSource:
-          widget.passwordRecoveryRemoteDataSource ??
-              _defaultPasswordRecoveryRemoteDataSource(),
     );
     _profileRepository = ProfileRepositoryImpl(
       remoteDataSource: ApiProfileRemoteDataSource(apiClient: _apiClient),
@@ -151,25 +138,6 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
                 sessionManager: _sessionManager,
               ),
             ),
-        PasswordRecoveryEmailPage.routeName: (_) => PasswordRecoveryEmailPage(
-              viewModel: PasswordRecoveryEmailViewModel(
-                authRepository: _authRepository,
-              ),
-            ),
-        PasswordRecoveryCodePage.routeName: (context) =>
-            PasswordRecoveryCodePage(
-              email: _readEmailArgument(context),
-              viewModel: PasswordRecoveryCodeViewModel(
-                authRepository: _authRepository,
-              ),
-            ),
-        PasswordRecoveryNewPasswordPage.routeName: (context) =>
-            PasswordRecoveryNewPasswordPage(
-              args: _readNewPasswordArguments(context),
-              viewModel: PasswordRecoveryNewPasswordViewModel(
-                authRepository: _authRepository,
-              ),
-            ),
         MainPage.routeName: (_) => SessionGuard(
               sessionManager: _sessionManager,
               redirectRoute: LoginPage.routeName,
@@ -183,34 +151,6 @@ class _TaFeitoAppState extends State<TaFeitoApp> {
             ),
       },
     );
-  }
-
-  String _readEmailArgument(BuildContext context) {
-    final arguments = ModalRoute.of(context)?.settings.arguments;
-    if (arguments is String) {
-      return arguments;
-    }
-
-    return '';
-  }
-
-  PasswordRecoveryNewPasswordArgs _readNewPasswordArguments(
-    BuildContext context,
-  ) {
-    final arguments = ModalRoute.of(context)?.settings.arguments;
-    if (arguments is PasswordRecoveryNewPasswordArgs) {
-      return arguments;
-    }
-
-    return const PasswordRecoveryNewPasswordArgs(email: '', code: '');
-  }
-
-  PasswordRecoveryRemoteDataSource _defaultPasswordRecoveryRemoteDataSource() {
-    if (Firebase.apps.isNotEmpty) {
-      return FirebasePasswordRecoveryRemoteDataSource();
-    }
-
-    return StubPasswordRecoveryRemoteDataSource();
   }
 }
 

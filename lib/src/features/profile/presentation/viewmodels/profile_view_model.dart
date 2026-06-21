@@ -51,6 +51,7 @@ class ProfileViewModel extends ChangeNotifier {
     }
     return null;
   }
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -193,6 +194,31 @@ class ProfileViewModel extends ChangeNotifier {
     }
 
     _setLoading(false);
+  }
+
+  Future<bool> deleteAccount() async {
+    final user = _me;
+    if (user == null) {
+      _errorMessage = 'Nao foi possivel identificar sua conta.';
+      notifyListeners();
+      return false;
+    }
+
+    _setLoading(true);
+    _errorMessage = null;
+    _successMessage = null;
+
+    final result = await _profileRepository.deleteAccount(id: user.id);
+
+    _setLoading(false);
+    switch (result) {
+      case Success():
+        return true;
+      case Failure(:final message):
+        _errorMessage = message;
+        notifyListeners();
+        return false;
+    }
   }
 
   void _applyUser(UserDto user) {

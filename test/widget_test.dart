@@ -43,16 +43,4 @@ void main() {
     expect(find.text('CPF/CNPJ'), findsOneWidget);
     expect(find.text('Criar'), findsOneWidget);
   });
-
-  testWidgets('opens password recovery from login',
-      (WidgetTester tester) async {
-    await pumpApp(tester);
-
-    await tester.tap(find.text('Esqueceu a senha?'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Recuperar senha'), findsOneWidget);
-    expect(find.text('Email de cadastro'), findsOneWidget);
-    expect(find.text('Enviar codigo'), findsOneWidget);
-  });
 }

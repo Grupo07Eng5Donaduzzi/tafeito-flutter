@@ -162,6 +162,52 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _deleteAccount(BuildContext context) async {
+    if (_viewModel.isLoading) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('Excluir conta'),
+        content: const Text(
+          'Tem certeza que deseja excluir sua conta? Esta acao nao pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    final deleted = await _viewModel.deleteAccount();
+    if (!context.mounted || !deleted) {
+      return;
+    }
+
+    await widget.sessionManager.logout();
+    if (!context.mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      LoginPage.routeName,
+      (route) => false,
+    );
+  }
+
   @override
   void dispose() {
     _viewModel.dispose();
@@ -350,9 +396,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     vertical: 12,
                   ),
                 ),
-                onPressed: _viewModel.isLoading ? null : () async {
-                  await _viewModel.changePassword();
-                },
+                onPressed: _viewModel.isLoading
+                    ? null
+                    : () async {
+                        await _viewModel.changePassword();
+                      },
                 child: _viewModel.isLoading
                     ? const SizedBox.square(
                         dimension: 18,
@@ -370,7 +418,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Divider(color: Color(0xFFF3F4F6)),
               ),
-
               const Text(
                 'Pagamentos',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -429,7 +476,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 backgroundColor: const Color(0xFFE55B4B),
                 textColor: Colors.white,
                 iconColor: Colors.white,
-                onPressed: () {},
+                onPressed: () => _deleteAccount(context),
               ),
             ],
           ),
