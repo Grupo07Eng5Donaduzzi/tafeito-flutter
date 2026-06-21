@@ -193,7 +193,7 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
       ApiPaths.proposalInvoice(proposalId),
       files: [
         MultipartFilePayload(
-          fieldName: 'file',
+          fieldName: 'invoice',
           fileName: fileName,
           bytes: bytes,
         ),
