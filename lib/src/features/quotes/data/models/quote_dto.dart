@@ -16,7 +16,6 @@ class QuoteDto {
     this.qrCode,
     this.qrCodeBase64,
     this.ticketUrl,
-    this.linkedChatId,
     this.serviceId,
     this.invoiceFile,
   });
@@ -37,7 +36,6 @@ class QuoteDto {
   final String? qrCode;
   final String? qrCodeBase64;
   final String? ticketUrl;
-  final String? linkedChatId;
   final String? serviceId;
   final String? invoiceFile;
 
@@ -133,7 +131,6 @@ class QuoteDto {
       qrCode: _emptyToNull(json['qrCode']),
       qrCodeBase64: _emptyToNull(json['qrCodeBase64']),
       ticketUrl: _emptyToNull(json['ticketUrl']),
-      linkedChatId: _emptyToNull(json['linkedChatId']),
       serviceId: serviceId,
       invoiceFile: _emptyToNull(json['invoiceFile']),
     );
@@ -180,6 +177,53 @@ class PaymentCheckDto {
       qrCode: _emptyToNull(json['qrCode']),
       qrCodeBase64: _emptyToNull(json['qrCodeBase64']),
       ticketUrl: _emptyToNull(json['ticketUrl']),
+    );
+  }
+}
+
+class ContestResponseDto {
+  const ContestResponseDto({
+    required this.proposal,
+    required this.conversationId,
+    required this.isNew,
+  });
+
+  final QuoteDto proposal;
+  final String conversationId;
+  final bool isNew;
+
+  factory ContestResponseDto.fromJson(Map<String, Object?> json) {
+    final proposalJson = json['proposal'];
+    return ContestResponseDto(
+      proposal: proposalJson is Map
+          ? QuoteDto.fromProposal(
+              proposalJson.map((k, v) => MapEntry(k.toString(), v)),
+            )
+          : const QuoteDto(id: '', serviceName: '', status: 'NEGOTIATING', createdAt: ''),
+      conversationId: json['conversationId']?.toString() ?? '',
+      isNew: json['isNew'] == true,
+    );
+  }
+}
+
+class ReviseResponseDto {
+  const ReviseResponseDto({
+    required this.proposal,
+    required this.conversationId,
+  });
+
+  final QuoteDto proposal;
+  final String conversationId;
+
+  factory ReviseResponseDto.fromJson(Map<String, Object?> json) {
+    final proposalJson = json['proposal'];
+    return ReviseResponseDto(
+      proposal: proposalJson is Map
+          ? QuoteDto.fromProposal(
+              proposalJson.map((k, v) => MapEntry(k.toString(), v)),
+            )
+          : const QuoteDto(id: '', serviceName: '', status: 'PENDING', createdAt: ''),
+      conversationId: json['conversationId']?.toString() ?? '',
     );
   }
 }

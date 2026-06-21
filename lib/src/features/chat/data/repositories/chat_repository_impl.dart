@@ -11,12 +11,16 @@ class ChatRepositoryImpl implements ChatRepository {
   final ChatRemoteDataSource _remoteDataSource;
 
   @override
-  Future<Result<List<ChatMessageDto>>> findUserMessages({
-    required String userId,
-    int limit = 50,
+  Future<Result<List<ChatConversationDto>>> getConversations() {
+    return _runList(() => _remoteDataSource.getConversations());
+  }
+
+  @override
+  Future<Result<ChatEnsureResponseDto>> ensureConversation({
+    required String participantId,
   }) {
-    return _runList(
-      () => _remoteDataSource.findUserMessages(userId: userId, limit: limit),
+    return _run(
+      () => _remoteDataSource.ensureConversation(participantId: participantId),
     );
   }
 
@@ -47,6 +51,16 @@ class ChatRepositoryImpl implements ChatRepository {
         recipientId: recipientId,
         content: content,
       ),
+    );
+  }
+
+  @override
+  Future<Result<List<ChatMessageDto>>> findUserMessages({
+    required String userId,
+    int limit = 50,
+  }) {
+    return _runList(
+      () => _remoteDataSource.findUserMessages(userId: userId, limit: limit),
     );
   }
 

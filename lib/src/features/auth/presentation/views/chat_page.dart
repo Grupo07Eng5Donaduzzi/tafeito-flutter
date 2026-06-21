@@ -27,7 +27,7 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  List<ChatMessageDto> _messages = const [];
+  List<ChatConversationDto> _conversations = const [];
   List<QuoteDto> _allProposals = const [];
   bool _isLoading = true;
   String? _error;
@@ -51,8 +51,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    final msgResult = await widget.chatRepository
-        .findUserMessages(userId: _userId, limit: 50);
+    final conversationsResult = await widget.chatRepository.getConversations();
 
     List<QuoteDto> proposals = [];
     if (widget.quotesRepository != null) {
@@ -67,10 +66,10 @@ class _ChatPageState extends State<ChatPage> {
 
     if (!mounted) return;
 
-    switch (msgResult) {
+    switch (conversationsResult) {
       case Success(:final data):
         setState(() {
-          _messages = data;
+          _conversations = data;
           _allProposals = proposals;
           _isLoading = false;
         });
@@ -82,42 +81,43 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  String _nameForConversation(String conversationId, String recipientId) {
+  String _nameFor(String otherParticipantId) {
     for (final q in _allProposals) {
-      if (q.linkedChatId == conversationId) {
+      if (q.otherPartyId == otherParticipantId) {
         final name = q.otherPartyName;
         if (name != null && name.isNotEmpty) return name;
       }
     }
-    final suffix = recipientId.length > 4
-        ? recipientId.substring(recipientId.length - 4)
-        : recipientId;
+    final suffix = otherParticipantId.length > 4
+        ? otherParticipantId.substring(otherParticipantId.length - 4)
+        : otherParticipantId;
     return suffix.isEmpty ? 'Conversa' : 'Usuário $suffix';
   }
 
-  QuoteDto? _proposalForConversation(String conversationId) {
+  String? _serviceNameFor(String otherParticipantId) {
     for (final q in _allProposals) {
-      if (q.linkedChatId == conversationId) return q;
+      if (q.otherPartyId == otherParticipantId && q.serviceName.isNotEmpty) {
+        return q.serviceName;
+      }
     }
     return null;
   }
 
-  void _openThread(_ConversationPreview conversation) {
-    final proposal = _proposalForConversation(conversation.conversationId);
-    Navigator.of(context).push(
+  Future<void> _openThread(ChatConversationDto conversation) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatThreadPage(
-          conversationId: conversation.conversationId,
-          recipientId: conversation.recipientId,
-          otherPartyName: conversation.name,
+          conversationId: conversation.id,
+          recipientId: conversation.otherParticipantId,
+          otherPartyName: _nameFor(conversation.otherParticipantId),
           currentUserId: _userId,
           chatRepository: widget.chatRepository,
-          proposalId: proposal?.id,
-          proposalStatus: proposal?.status,
+          token: widget.sessionManager.session?.accessToken ?? '',
           quotesRepository: widget.quotesRepository,
         ),
       ),
     );
+    _load();
   }
 
   @override
@@ -134,9 +134,7 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    final conversations = _buildPreviews(_messages, _userId, _nameForConversation);
-
-    if (conversations.isEmpty) {
+    if (_conversations.isEmpty) {
       return AppEmptyState(
         message: 'Nenhuma conversa ainda.',
         actionLabel: 'Atualizar',
@@ -149,12 +147,14 @@ class _ChatPageState extends State<ChatPage> {
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-        itemCount: conversations.length,
+        itemCount: _conversations.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          final conversation = conversations[index];
+          final conversation = _conversations[index];
           return _ConversationTile(
-            conversation: conversation,
+            name: _nameFor(conversation.otherParticipantId),
+            serviceName: _serviceNameFor(conversation.otherParticipantId),
+            time: _formatTime(conversation.lastMessageAt),
             onTap: () => _openThread(conversation),
           );
         },
@@ -165,12 +165,16 @@ class _ChatPageState extends State<ChatPage> {
 
 class _ConversationTile extends StatelessWidget {
   const _ConversationTile({
-    required this.conversation,
+    required this.name,
+    required this.time,
     required this.onTap,
+    this.serviceName,
   });
 
-  final _ConversationPreview conversation;
+  final String name;
+  final String time;
   final VoidCallback onTap;
+  final String? serviceName;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +187,7 @@ class _ConversationTile extends StatelessWidget {
             radius: 22,
             backgroundColor: const Color(0xFFE5E7EB),
             child: Text(
-              conversation.name.isEmpty ? '?' : conversation.name[0].toUpperCase(),
+              name.isEmpty ? '?' : name[0].toUpperCase(),
               style: const TextStyle(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w900,
@@ -196,92 +200,60 @@ class _ConversationTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  conversation.name,
+                  name,
                   style: const TextStyle(
                     color: AppTheme.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  conversation.message,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppTheme.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                if (serviceName != null) ...[
+                  const SizedBox(height: 3),
+                  _ServiceTag(serviceName: serviceName!),
+                ],
               ],
             ),
           ),
-          Text(
-            conversation.time,
-            style: const TextStyle(
-              color: AppTheme.textMuted,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+          if (time.isNotEmpty)
+            Text(
+              time,
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _ConversationPreview {
-  const _ConversationPreview({
-    required this.conversationId,
-    required this.recipientId,
-    required this.name,
-    required this.message,
-    required this.time,
-  });
+class _ServiceTag extends StatelessWidget {
+  const _ServiceTag({required this.serviceName});
 
-  final String conversationId;
-  final String recipientId;
-  final String name;
-  final String message;
-  final String time;
-}
+  final String serviceName;
 
-List<_ConversationPreview> _buildPreviews(
-  List<ChatMessageDto> messages,
-  String currentUserId,
-  String Function(String conversationId, String recipientId) nameResolver,
-) {
-  final byConversation = <String, ChatMessageDto>{};
-  for (final message in messages) {
-    final id =
-        message.conversationId.isNotEmpty ? message.conversationId : message.id;
-    final current = byConversation[id];
-    if (current == null ||
-        (message.createdAt ?? DateTime(0))
-            .isAfter(current.createdAt ?? DateTime(0))) {
-      byConversation[id] = message;
-    }
-  }
-
-  final previews = byConversation.entries.map((entry) {
-    final conversationId = entry.key;
-    final message = entry.value;
-    final recipientId = message.senderId == currentUserId
-        ? message.recipientId
-        : message.senderId;
-
-    return _ConversationPreview(
-      conversationId: conversationId,
-      recipientId: recipientId,
-      name: nameResolver(conversationId, recipientId),
-      message: message.content,
-      time: _formatTime(message.createdAt),
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        serviceName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 10,
+          color: AppTheme.primary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
-  }).toList()
-    ..sort((a, b) => b.time.compareTo(a.time));
-
-  return previews;
+  }
 }
 
 String _formatTime(DateTime? date) {

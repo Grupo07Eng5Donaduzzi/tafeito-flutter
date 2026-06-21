@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import '../../../../core/result/result.dart';
 import '../../../../core/network/api_client.dart';
 import '../../data/models/create_quote_request.dart';
-import '../../data/models/negotiation_message_dto.dart';
 import '../../data/models/quote_dto.dart';
 import '../../data/models/respond_quote_request.dart';
 
@@ -37,8 +36,16 @@ abstract interface class QuotesRepository {
   /// Client: reject a proposal.
   Future<Result<QuoteDto>> rejectProposal(String proposalId, {String? reason});
 
-  /// Client: contest/negotiate a proposal.
-  Future<Result<QuoteDto>> contestProposal(String proposalId, String reason);
+  /// Client: contest/negotiate a proposal — returns conversation info.
+  Future<Result<ContestResponseDto>> contestProposal(
+      String proposalId, String reason);
+
+  /// Provider: revise proposal amount (NEGOTIATING → PENDING).
+  Future<Result<ReviseResponseDto>> reviseProposal(
+      String proposalId, double amount);
+
+  /// Provider: list NEGOTIATING proposals between self and a client.
+  Future<Result<List<QuoteDto>>> getNegotiatingProposals(String clientId);
 
   /// Provider: decline a budget request (remove from Solicitados permanently).
   Future<Result<void>> declineRequest(String requestId);
@@ -68,12 +75,4 @@ abstract interface class QuotesRepository {
 
   /// Download nota fiscal bytes for a completed proposal.
   Future<Result<Uint8List>> downloadInvoice(String proposalId);
-
-  /// List negotiation messages for a proposal (NEGOTIATING status).
-  Future<Result<List<NegotiationMessageDto>>> getNegotiationMessages(
-      String proposalId);
-
-  /// Provider: send a revised proposal amount within a negotiation.
-  Future<Result<NegotiationMessageDto>> sendRevisedProposal(
-      String proposalId, double amount);
 }

@@ -77,6 +77,7 @@ class _MainPageState extends State<MainPage> {
         sessionManager: widget.sessionManager,
         quotesRepository: widget.quotesRepository,
         servicesRepository: widget.servicesRepository,
+        chatRepository: widget.chatRepository,
         isProvider: _isProvider,
         onBecomeProvider: _onBecomeProvider,
       ),

@@ -193,14 +193,31 @@ class QuotesHomeViewModel extends ChangeNotifier {
     );
   }
 
-  Future<bool> negotiate(String proposalId, {String? counterProposal}) {
-    return _updateReceived(
+  /// Returns the conversationId on success, or null on failure.
+  Future<String?> negotiate(String proposalId, {String? counterProposal}) async {
+    _actionLoading = true;
+    _actionError = null;
+    notifyListeners();
+
+    final result = await _quotesRepository.contestProposal(
       proposalId,
-      () => _quotesRepository.contestProposal(
-        proposalId,
-        counterProposal ?? 'Gostaria de negociar o valor.',
-      ),
+      counterProposal ?? 'Gostaria de negociar o valor.',
     );
+
+    _actionLoading = false;
+    switch (result) {
+      case Success(:final data):
+        final index = _received.indexWhere((q) => q.id == proposalId);
+        if (index != -1) {
+          _received = List.of(_received)..[index] = data.proposal;
+        }
+        notifyListeners();
+        return data.conversationId;
+      case Failure(:final message):
+        _actionError = message;
+        notifyListeners();
+        return null;
+    }
   }
 
   Future<bool> _updateReceived(

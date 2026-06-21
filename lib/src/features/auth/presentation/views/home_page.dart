@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import '../../../../core/session/session_manager.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_ui.dart';
+import '../../../../features/chat/domain/repositories/chat_repository.dart';
 import '../../../../features/quotes/data/models/quote_dto.dart';
 import '../../../../features/quotes/domain/repositories/quotes_repository.dart';
 import '../../../../features/quotes/presentation/viewmodels/quotes_home_view_model.dart';
 import '../../../../features/payments/presentation/views/pix_payment_page.dart';
 import '../../../../features/services/domain/repositories/services_repository.dart';
+import 'chat_thread_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
     required this.sessionManager,
     required this.quotesRepository,
     required this.servicesRepository,
+    required this.chatRepository,
     required this.isProvider,
     this.onBecomeProvider,
     super.key,
@@ -22,6 +25,7 @@ class HomePage extends StatefulWidget {
   final SessionManager sessionManager;
   final QuotesRepository quotesRepository;
   final ServicesRepository servicesRepository;
+  final ChatRepository chatRepository;
   final bool isProvider;
   final Future<bool> Function(String pixKey)? onBecomeProvider;
 
@@ -121,6 +125,9 @@ class _HomePageState extends State<HomePage> {
         firstName: _firstName,
         viewModel: _viewModel,
         quotesRepository: widget.quotesRepository,
+        chatRepository: widget.chatRepository,
+        currentUserId: widget.sessionManager.session?.user.id ?? '',
+        accessToken: widget.sessionManager.session?.accessToken ?? '',
         showBanner: _showProviderBanner,
         onCloseBanner: () => setState(() => _showProviderBanner = false),
         onBecomeProviderTap: _showBecomeProviderSheet,
@@ -183,6 +190,9 @@ class _HomePageState extends State<HomePage> {
                 1 => _ReceivedList(
                     viewModel: _viewModel,
                     quotesRepository: widget.quotesRepository,
+                    chatRepository: widget.chatRepository,
+                    currentUserId: widget.sessionManager.session?.user.id ?? '',
+                    accessToken: widget.sessionManager.session?.accessToken ?? '',
                   ),
                 _ => _RequestsList(viewModel: _viewModel),
               };
@@ -199,6 +209,9 @@ class _ClientHomeView extends StatelessWidget {
     required this.firstName,
     required this.viewModel,
     required this.quotesRepository,
+    required this.chatRepository,
+    required this.currentUserId,
+    required this.accessToken,
     required this.showBanner,
     required this.onCloseBanner,
     required this.onBecomeProviderTap,
@@ -207,6 +220,9 @@ class _ClientHomeView extends StatelessWidget {
   final String firstName;
   final QuotesHomeViewModel viewModel;
   final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
+  final String currentUserId;
+  final String accessToken;
   final bool showBanner;
   final VoidCallback onCloseBanner;
   final VoidCallback onBecomeProviderTap;
@@ -267,6 +283,9 @@ class _ClientHomeView extends StatelessWidget {
                 builder: (context, _) => _ReceivedList(
                   viewModel: viewModel,
                   quotesRepository: quotesRepository,
+                  chatRepository: chatRepository,
+                  currentUserId: currentUserId,
+                  accessToken: accessToken,
                 ),
               ),
             ),
@@ -616,10 +635,16 @@ class _ReceivedList extends StatelessWidget {
   const _ReceivedList({
     required this.viewModel,
     required this.quotesRepository,
+    required this.chatRepository,
+    required this.currentUserId,
+    required this.accessToken,
   });
 
   final QuotesHomeViewModel viewModel;
   final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
+  final String currentUserId;
+  final String accessToken;
 
   @override
   Widget build(BuildContext context) {
@@ -633,8 +658,14 @@ class _ReceivedList extends StatelessWidget {
         onPressed: viewModel.loadReceived,
       );
     }
-    if (viewModel.received.isEmpty) {
-      return const AppEmptyState(message: 'Nenhum orçamento recebido ainda.');
+
+    final pending = viewModel.received.where((q) {
+      final s = q.status.toLowerCase();
+      return s == 'pending' || s == 'pendente';
+    }).toList();
+
+    if (pending.isEmpty) {
+      return const AppEmptyState(message: 'Nenhum orçamento pendente.');
     }
 
     return RefreshIndicator(
@@ -642,13 +673,16 @@ class _ReceivedList extends StatelessWidget {
       onRefresh: viewModel.loadReceived,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        itemCount: viewModel.received.length,
+        itemCount: pending.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           return _ReceivedCard(
-            quote: viewModel.received[index],
+            quote: pending[index],
             viewModel: viewModel,
             quotesRepository: quotesRepository,
+            chatRepository: chatRepository,
+            currentUserId: currentUserId,
+            accessToken: accessToken,
           );
         },
       ),
@@ -661,11 +695,17 @@ class _ReceivedCard extends StatelessWidget {
     required this.quote,
     required this.viewModel,
     required this.quotesRepository,
+    required this.chatRepository,
+    required this.currentUserId,
+    required this.accessToken,
   });
 
   final QuoteDto quote;
   final QuotesHomeViewModel viewModel;
   final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
+  final String currentUserId;
+  final String accessToken;
 
   bool get _isPending {
     final status = quote.status.toLowerCase();
@@ -818,49 +858,25 @@ class _ReceivedCard extends StatelessWidget {
   }
 
   Future<void> _negotiate(BuildContext context) async {
-    final controller = TextEditingController();
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Negociar orçamento'),
-        content: TextField(
-          controller: controller,
-          minLines: 3,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'Escreva sua contraproposta ou dúvida.',
-          ),
+    final conversationId = await viewModel.negotiate(quote.id);
+    if (!context.mounted || conversationId == null) return;
+    _openChatThread(context, conversationId);
+  }
+
+  void _openChatThread(BuildContext context, String conversationId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatThreadPage(
+          conversationId: conversationId,
+          recipientId: quote.otherPartyId ?? '',
+          otherPartyName: quote.otherPartyName ?? 'Prestador',
+          currentUserId: currentUserId,
+          chatRepository: chatRepository,
+          token: accessToken,
+          quotesRepository: quotesRepository,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Enviar'),
-          ),
-        ],
       ),
     );
-    final reason = controller.text.trim();
-    controller.dispose();
-
-    if (submitted == true) {
-      final ok = await viewModel.negotiate(
-        quote.id,
-        counterProposal: reason.isEmpty ? null : reason,
-      );
-      if (ok && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Proposta enviada para negociação. Acesse o Chat para conversar.'),
-          ),
-        );
-      }
-    }
   }
 }
 

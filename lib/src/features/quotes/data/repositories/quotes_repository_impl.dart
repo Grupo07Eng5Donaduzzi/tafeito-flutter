@@ -5,7 +5,6 @@ import '../../../../core/result/result.dart';
 import '../../domain/repositories/quotes_repository.dart';
 import '../datasources/quotes_remote_data_source.dart';
 import '../models/create_quote_request.dart';
-import '../models/negotiation_message_dto.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
@@ -68,11 +67,20 @@ class QuotesRepositoryImpl implements QuotesRepository {
       );
 
   @override
-  Future<Result<QuoteDto>> contestProposal(
+  Future<Result<ContestResponseDto>> contestProposal(
     String proposalId,
     String reason,
   ) =>
       _run(() => _remoteDataSource.contestProposal(proposalId, reason));
+
+  @override
+  Future<Result<ReviseResponseDto>> reviseProposal(
+          String proposalId, double amount) =>
+      _run(() => _remoteDataSource.reviseProposal(proposalId, amount));
+
+  @override
+  Future<Result<List<QuoteDto>>> getNegotiatingProposals(String clientId) =>
+      _runList(() => _remoteDataSource.getNegotiatingProposals(clientId));
 
   @override
   Future<Result<void>> declineRequest(String requestId) =>
@@ -97,16 +105,6 @@ class QuotesRepositoryImpl implements QuotesRepository {
             rating: rating,
             comment: comment,
           ));
-
-  @override
-  Future<Result<List<NegotiationMessageDto>>> getNegotiationMessages(
-          String proposalId) =>
-      _runList(() => _remoteDataSource.getNegotiationMessages(proposalId));
-
-  @override
-  Future<Result<NegotiationMessageDto>> sendRevisedProposal(
-          String proposalId, double amount) =>
-      _run(() => _remoteDataSource.sendRevisedProposal(proposalId, amount));
 
   @override
   Future<Result<List<QuoteDto>>> getClientHistory() =>

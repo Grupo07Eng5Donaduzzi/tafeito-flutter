@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../../core/network/api_paths.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_ui.dart';
 import '../../../chat/data/models/chat_message_dto.dart';
+import '../../../chat/data/services/chat_socket_service.dart';
 import '../../../chat/domain/repositories/chat_repository.dart';
-import '../../../quotes/data/models/negotiation_message_dto.dart';
+import '../../../quotes/data/models/quote_dto.dart';
 import '../../../quotes/domain/repositories/quotes_repository.dart';
 
 class ChatThreadPage extends StatefulWidget {
@@ -15,8 +19,7 @@ class ChatThreadPage extends StatefulWidget {
     required this.otherPartyName,
     required this.currentUserId,
     required this.chatRepository,
-    this.proposalId,
-    this.proposalStatus,
+    this.token = '',
     this.isProvider = false,
     this.quotesRepository,
     super.key,
@@ -27,8 +30,7 @@ class ChatThreadPage extends StatefulWidget {
   final String otherPartyName;
   final String currentUserId;
   final ChatRepository chatRepository;
-  final String? proposalId;
-  final String? proposalStatus;
+  final String token;
   final bool isProvider;
   final QuotesRepository? quotesRepository;
 
@@ -38,21 +40,42 @@ class ChatThreadPage extends StatefulWidget {
 
 class _ChatThreadPageState extends State<ChatThreadPage> {
   final _messageController = TextEditingController();
-  List<_ThreadEntry> _items = const [];
+  List<ChatMessageDto> _messages = const [];
   bool _isLoading = true;
   bool _isSending = false;
   String? _error;
-
-  bool get _isNegotiating => widget.proposalStatus == 'NEGOTIATING';
+  final _socketService = ChatSocketService();
+  StreamSubscription<ChatMessageDto>? _socketSubscription;
 
   @override
   void initState() {
     super.initState();
     _load();
+    if (widget.token.isNotEmpty) {
+      _socketService.connect(
+        serverUrl: ApiPaths.chatBaseUrl,
+        token: widget.token,
+        conversationId: widget.conversationId,
+      );
+      _socketSubscription = _socketService.messages.listen(_onSocketMessage);
+    }
+  }
+
+  void _onSocketMessage(ChatMessageDto msg) {
+    if (mounted) {
+      setState(() {
+        _messages = [..._messages, msg]
+          ..sort((a, b) =>
+              (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)));
+      });
+    }
   }
 
   @override
   void dispose() {
+    _socketSubscription?.cancel();
+    _socketService.leaveAndDisconnect(widget.conversationId);
+    _socketService.dispose();
     _messageController.dispose();
     super.dispose();
   }
@@ -63,43 +86,43 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       _error = null;
     });
 
-    final chatResult = await widget.chatRepository.findConversationMessages(
+    final result = await widget.chatRepository.findConversationMessages(
       conversationId: widget.conversationId,
       page: 1,
       pageSize: 50,
     );
 
-    List<ChatMessageDto> chatMessages = [];
-    switch (chatResult) {
+    if (!mounted) return;
+    switch (result) {
       case Success(:final data):
-        chatMessages = data;
+        setState(() {
+          _messages = data;
+          _isLoading = false;
+        });
       case Failure(:final message):
-        if (mounted) setState(() { _error = message; _isLoading = false; });
-        return;
+        setState(() {
+          _error = message;
+          _isLoading = false;
+        });
     }
-
-    List<NegotiationMessageDto> negotiationMessages = [];
-    if (_isNegotiating &&
-        widget.proposalId != null &&
-        widget.quotesRepository != null) {
-      final result = await widget.quotesRepository!
-          .getNegotiationMessages(widget.proposalId!);
-      if (result case Success(:final data)) negotiationMessages = data;
-    }
-
-    final merged = [
-      ...chatMessages.map(_ThreadEntry.fromChat),
-      ...negotiationMessages.map(_ThreadEntry.fromNegotiation),
-    ]..sort((a, b) =>
-        (a.time ?? DateTime(0)).compareTo(b.time ?? DateTime(0)));
-
-    if (mounted) setState(() { _items = merged; _isLoading = false; });
   }
 
   Future<void> _send() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || _isSending) return;
 
+    _messageController.clear();
+
+    if (_socketService.isConnected) {
+      _socketService.sendMessage(
+        conversationId: widget.conversationId,
+        recipientId: widget.recipientId,
+        content: text,
+      );
+      return;
+    }
+
+    // Fallback para REST quando WebSocket não está conectado
     setState(() => _isSending = true);
     final result = await widget.chatRepository.sendConversationMessage(
       conversationId: widget.conversationId,
@@ -111,7 +134,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
     switch (result) {
       case Success():
-        _messageController.clear();
         _load();
       case Failure(:final message):
         ScaffoldMessenger.of(context)
@@ -119,7 +141,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     }
   }
 
-  void _showSendOfferSheet() {
+  void _showUpdateProposalSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -127,8 +149,8 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (_) => _SendOfferSheet(
-        proposalId: widget.proposalId!,
+      builder: (_) => _UpdateProposalSheet(
+        clientId: widget.recipientId,
         quotesRepository: widget.quotesRepository!,
         onSent: _load,
       ),
@@ -142,14 +164,15 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        leadingWidth: 76,
+        leadingWidth: 88,
         leading: TextButton.icon(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back, size: 18),
-          label: const Text('Voltar'),
+          icon: const Icon(Icons.arrow_back, size: 22),
+          label: const Text('Voltar', style: TextStyle(fontSize: 15)),
           style: TextButton.styleFrom(
             foregroundColor: AppTheme.textPrimary,
             padding: const EdgeInsets.only(left: 8),
+            minimumSize: const Size(88, 48),
           ),
         ),
         bottom: const PreferredSize(
@@ -199,7 +222,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                         actionLabel: 'Tentar novamente',
                         onPressed: _load,
                       )
-                    : _items.isEmpty
+                    : _messages.isEmpty
                         ? const AppEmptyState(
                             message: 'Nenhuma mensagem ainda.')
                         : RefreshIndicator(
@@ -208,34 +231,15 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                             child: ListView.separated(
                               padding:
                                   const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                              itemCount: _items.length,
+                              itemCount: _messages.length,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 12),
                               itemBuilder: (context, index) {
-                                final item = _items[index];
-                                if (item.offer != null &&
-                                    item.offer!.isOffer) {
-                                  return _OfferCard(
-                                    offer: item.offer!,
-                                    canAct: !widget.isProvider &&
-                                        widget.proposalId != null &&
-                                        widget.quotesRepository != null,
-                                    proposalId: widget.proposalId,
-                                    quotesRepository: widget.quotesRepository,
-                                    onActed: () => Navigator.of(context).pop(),
-                                  );
-                                }
-                                final isMine = item.chat != null
-                                    ? item.chat!.senderId ==
-                                        widget.currentUserId
-                                    : item.offer?.senderRole == 'PROVIDER'
-                                        ? widget.isProvider
-                                        : !widget.isProvider;
+                                final msg = _messages[index];
                                 return _MessageBubble(
-                                  content: item.chat?.content ??
-                                      item.offer?.message ??
-                                      '',
-                                  isMine: isMine,
+                                  content: msg.content,
+                                  isMine:
+                                      msg.senderId == widget.currentUserId,
                                   otherPartyName: widget.otherPartyName,
                                 );
                               },
@@ -246,156 +250,10 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
             controller: _messageController,
             isSending: _isSending,
             onSend: _send,
-            showOfferButton: widget.isProvider &&
-                _isNegotiating &&
-                widget.proposalId != null &&
-                widget.quotesRepository != null,
-            onSendOffer: _showSendOfferSheet,
+            showUpdateButton:
+                widget.isProvider && widget.quotesRepository != null,
+            onUpdateProposal: _showUpdateProposalSheet,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Thread entry (union of chat message and negotiation message)
-// ---------------------------------------------------------------------------
-
-class _ThreadEntry {
-  const _ThreadEntry._({this.chat, this.offer});
-
-  factory _ThreadEntry.fromChat(ChatMessageDto msg) =>
-      _ThreadEntry._(chat: msg);
-  factory _ThreadEntry.fromNegotiation(NegotiationMessageDto msg) =>
-      _ThreadEntry._(offer: msg);
-
-  final ChatMessageDto? chat;
-  final NegotiationMessageDto? offer;
-
-  DateTime? get time => chat?.createdAt ?? offer?.createdAt;
-}
-
-// ---------------------------------------------------------------------------
-// Offer card (Nova proposta)
-// ---------------------------------------------------------------------------
-
-class _OfferCard extends StatefulWidget {
-  const _OfferCard({
-    required this.offer,
-    required this.canAct,
-    required this.onActed,
-    this.proposalId,
-    this.quotesRepository,
-  });
-
-  final NegotiationMessageDto offer;
-  final bool canAct;
-  final String? proposalId;
-  final QuotesRepository? quotesRepository;
-  final VoidCallback onActed;
-
-  @override
-  State<_OfferCard> createState() => _OfferCardState();
-}
-
-class _OfferCardState extends State<_OfferCard> {
-  bool _loading = false;
-
-  String get _formattedAmount {
-    final amount = widget.offer.revisedAmount!;
-    return 'R\$ ${amount.toStringAsFixed(2).replaceAll('.', ',')}';
-  }
-
-  Future<void> _accept() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    final result =
-        await widget.quotesRepository!.acceptProposal(widget.proposalId!);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    switch (result) {
-      case Success():
-        widget.onActed();
-      case Failure(:final message):
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  Future<void> _reject() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    final result = await widget.quotesRepository!
-        .rejectProposal(widget.proposalId!);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    switch (result) {
-      case Success():
-        widget.onActed();
-      case Failure(:final message):
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Nova proposta',
-            style: TextStyle(
-              color: AppTheme.textMuted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _formattedAmount,
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          if (widget.canAct) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: AppSecondaryButton(
-                    label: 'Recusar',
-                    dark: false,
-                    onPressed: _loading ? null : _reject,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _accept,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(42),
-                    ),
-                    child: _loading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Aceitar'),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
@@ -462,7 +320,7 @@ class _MessageBubble extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Footer with text input + optional offer button
+// Footer with text input + optional "Atualizar proposta" button
 // ---------------------------------------------------------------------------
 
 class _Footer extends StatelessWidget {
@@ -470,15 +328,15 @@ class _Footer extends StatelessWidget {
     required this.controller,
     required this.isSending,
     required this.onSend,
-    required this.showOfferButton,
-    required this.onSendOffer,
+    required this.showUpdateButton,
+    required this.onUpdateProposal,
   });
 
   final TextEditingController controller;
   final bool isSending;
   final VoidCallback onSend;
-  final bool showOfferButton;
-  final VoidCallback onSendOffer;
+  final bool showUpdateButton;
+  final VoidCallback onUpdateProposal;
 
   @override
   Widget build(BuildContext context) {
@@ -489,13 +347,13 @@ class _Footer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (showOfferButton) ...[
+            if (showUpdateButton) ...[
               SizedBox(
                 width: double.infinity,
                 child: AppSecondaryButton(
-                  label: 'Enviar proposta',
+                  label: 'Atualizar proposta',
                   dark: false,
-                  onPressed: onSendOffer,
+                  onPressed: onUpdateProposal,
                 ),
               ),
               const SizedBox(height: 8),
@@ -509,12 +367,6 @@ class _Footer extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.image_outlined,
-                    color: AppTheme.textPrimary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: controller,
@@ -556,28 +408,37 @@ class _Footer extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Bottom sheet: provider sends a revised proposal
+// Bottom sheet: provider selects a NEGOTIATING proposal and sends revised amount
 // ---------------------------------------------------------------------------
 
-class _SendOfferSheet extends StatefulWidget {
-  const _SendOfferSheet({
-    required this.proposalId,
+class _UpdateProposalSheet extends StatefulWidget {
+  const _UpdateProposalSheet({
+    required this.clientId,
     required this.quotesRepository,
     required this.onSent,
   });
 
-  final String proposalId;
+  final String clientId;
   final QuotesRepository quotesRepository;
   final VoidCallback onSent;
 
   @override
-  State<_SendOfferSheet> createState() => _SendOfferSheetState();
+  State<_UpdateProposalSheet> createState() => _UpdateProposalSheetState();
 }
 
-class _SendOfferSheetState extends State<_SendOfferSheet> {
+class _UpdateProposalSheetState extends State<_UpdateProposalSheet> {
   final _amountController = TextEditingController();
+  List<QuoteDto> _proposals = const [];
+  QuoteDto? _selected;
+  bool _loadingProposals = true;
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProposals();
+  }
 
   @override
   void dispose() {
@@ -585,16 +446,41 @@ class _SendOfferSheetState extends State<_SendOfferSheet> {
     super.dispose();
   }
 
+  Future<void> _loadProposals() async {
+    final result =
+        await widget.quotesRepository.getNegotiatingProposals(widget.clientId);
+    if (!mounted) return;
+    switch (result) {
+      case Success(:final data):
+        setState(() {
+          _proposals = data;
+          _loadingProposals = false;
+        });
+      case Failure(:final message):
+        setState(() {
+          _error = message;
+          _loadingProposals = false;
+        });
+    }
+  }
+
   Future<void> _submit() async {
+    if (_selected == null) {
+      setState(() => _error = 'Selecione uma proposta.');
+      return;
+    }
     final text = _amountController.text.trim().replaceAll(',', '.');
     final amount = double.tryParse(text);
     if (amount == null || amount <= 0) {
       setState(() => _error = 'Informe um valor válido.');
       return;
     }
-    setState(() { _loading = true; _error = null; });
-    final result = await widget.quotesRepository
-        .sendRevisedProposal(widget.proposalId, amount);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final result =
+        await widget.quotesRepository.reviseProposal(_selected!.id, amount);
     if (!mounted) return;
     setState(() => _loading = false);
     switch (result) {
@@ -619,8 +505,10 @@ class _SendOfferSheetState extends State<_SendOfferSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const AppSheetHandle(),
+          const SizedBox(height: 16),
           const Text(
-            'Enviar nova proposta',
+            'Atualizar proposta',
             style: TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 18,
@@ -629,55 +517,94 @@ class _SendOfferSheetState extends State<_SendOfferSheet> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'O cliente poderá aceitar ou recusar o valor.',
+            'Selecione a proposta e informe o novo valor.',
             style: TextStyle(
               color: AppTheme.textMuted,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _amountController,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Valor (R\$)',
-              prefixText: 'R\$ ',
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          const SizedBox(height: 16),
+          if (_loadingProposals)
+            const Center(child: CircularProgressIndicator())
+          else if (_proposals.isEmpty)
+            const Text(
+              'Nenhuma proposta em negociação.',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+            )
+          else ...[
+            RadioGroup<QuoteDto>(
+              groupValue: _selected,
+              onChanged: (val) => setState(() => _selected = val),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _proposals
+                    .map(
+                      (p) => RadioListTile<QuoteDto>(
+                        value: p,
+                        title: Text(
+                          p.serviceName,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        subtitle: p.proposedValue != null
+                            ? Text(
+                                'Atual: R\$ ${p.proposedValue}',
+                                style: const TextStyle(
+                                    fontSize: 12, color: AppTheme.textMuted),
+                              )
+                            : null,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: AppTheme.primary,
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _amountController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Novo valor (R\$)',
+                prefixText: 'R\$ ',
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              ),
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(
               _error!,
-              style: const TextStyle(
-                color: Colors.red,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.red, fontSize: 12),
             ),
           ],
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _loading ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
+          if (!_loadingProposals && _proposals.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Atualizar proposta'),
               ),
-              child: _loading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Enviar proposta'),
             ),
-          ),
           const SizedBox(height: 8),
         ],
       ),

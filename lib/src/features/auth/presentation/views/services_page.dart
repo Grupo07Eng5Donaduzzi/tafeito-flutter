@@ -15,8 +15,7 @@ import '../../../../features/services/presentation/viewmodels/service_form_view_
 import '../../../../features/services/presentation/viewmodels/services_view_model.dart';
 import '../../../../features/services/presentation/views/service_detail_page.dart';
 import '../../../../features/services/presentation/views/service_form_page.dart';
-import '../views/chat_page.dart';
-import '../views/chat_thread_page.dart';
+import 'chat_thread_page.dart';
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({
@@ -136,8 +135,8 @@ class _ServicesPageState extends State<ServicesPage> {
                 return _InProgressTab(
                   isProvider: widget.isProvider && _topIndex == 0,
                   quotesRepository: widget.quotesRepository,
-                  sessionManager: widget.sessionManager,
                   chatRepository: widget.chatRepository,
+                  sessionManager: widget.sessionManager,
                   onCountChanged: (count) {
                     if (_inProgressCount != count) {
                       setState(() => _inProgressCount = count);
@@ -174,15 +173,15 @@ class _InProgressTab extends StatefulWidget {
   const _InProgressTab({
     required this.isProvider,
     required this.quotesRepository,
-    required this.sessionManager,
     required this.chatRepository,
+    required this.sessionManager,
     required this.onCountChanged,
   });
 
   final bool isProvider;
   final QuotesRepository quotesRepository;
-  final SessionManager sessionManager;
   final ChatRepository chatRepository;
+  final SessionManager sessionManager;
   final void Function(int count) onCountChanged;
 
   @override
@@ -296,37 +295,37 @@ class _InProgressTabState extends State<_InProgressTab> {
     );
   }
 
-  void _openChat(QuoteDto proposal) {
-    final chatId = proposal.linkedChatId;
-    if (chatId == null || chatId.isEmpty) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ChatPage(
-            sessionManager: widget.sessionManager,
-            chatRepository: widget.chatRepository,
-            quotesRepository: widget.quotesRepository,
-          ),
-        ),
-      );
-      return;
-    }
-    final currentUserId = widget.sessionManager.session?.user.id ?? '';
-    Navigator.of(context).push(
+  Future<void> _openChat(QuoteDto proposal) async {
+    final otherPartyId = proposal.otherPartyId ?? '';
+    if (otherPartyId.isEmpty) return;
+
+    final result = await widget.chatRepository
+        .ensureConversation(participantId: otherPartyId);
+    if (!mounted) return;
+
+    final conversationId = switch (result) {
+      Success(:final data) => data.conversationId,
+      Failure() => null,
+    };
+    if (conversationId == null) return;
+
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatThreadPage(
-          conversationId: chatId,
-          recipientId: proposal.otherPartyId ?? '',
-          otherPartyName: proposal.otherPartyName ?? 'Contato',
-          currentUserId: currentUserId,
+          conversationId: conversationId,
+          recipientId: otherPartyId,
+          otherPartyName: proposal.otherPartyName ??
+              (widget.isProvider ? 'Cliente' : 'Prestador'),
+          currentUserId: widget.sessionManager.session?.user.id ?? '',
           chatRepository: widget.chatRepository,
-          proposalId: proposal.id,
-          proposalStatus: proposal.status,
+          token: widget.sessionManager.session?.accessToken ?? '',
           isProvider: widget.isProvider,
-          quotesRepository: widget.quotesRepository,
+          quotesRepository: widget.isProvider ? widget.quotesRepository : null,
         ),
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -361,10 +360,10 @@ class _InProgressTabState extends State<_InProgressTab> {
             proposal: proposal,
             isProvider: widget.isProvider,
             actionLoading: _actionLoading,
-            onChat: () => _openChat(proposal),
             onConfirm: widget.isProvider
                 ? () => _providerConfirm(proposal)
                 : () => _clientConfirm(proposal),
+            onChat: () => _openChat(proposal),
           );
         },
       ),
@@ -377,15 +376,15 @@ class _ProposalCard extends StatelessWidget {
     required this.proposal,
     required this.isProvider,
     required this.actionLoading,
-    required this.onChat,
     required this.onConfirm,
+    required this.onChat,
   });
 
   final QuoteDto proposal;
   final bool isProvider;
   final bool actionLoading;
-  final VoidCallback onChat;
   final VoidCallback onConfirm;
+  final VoidCallback onChat;
 
   String get _otherPartyLabel {
     final name = proposal.otherPartyName;
@@ -501,15 +500,13 @@ class _ProposalCard extends StatelessWidget {
               Expanded(
                 child: AppSecondaryButton(
                   label: 'Chat',
-                  dark: true,
                   onPressed: onChat,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  onPressed:
-                      _canConfirm && !actionLoading ? onConfirm : null,
+                  onPressed: _canConfirm && !actionLoading ? onConfirm : null,
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size.fromHeight(42),
                   ),

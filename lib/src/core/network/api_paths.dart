@@ -55,12 +55,9 @@ class ApiPaths {
       '/v1/proposals/$id/clientConfirm';
   static String proposalInvoice(String id) => '/v1/proposals/$id/invoice';
 
-  static String negotiationMessages(String proposalId) =>
-      '/v1/negotiations/$proposalId/messages';
-  static String revisedProposal(String proposalId) =>
-      '/v1/negotiations/$proposalId/revisedProposal';
-  static String closeNegotiation(String proposalId) =>
-      '/v1/negotiations/$proposalId/close';
+  static String reviseProposal(String id) => '/v1/proposals/$id/revise';
+  static String negotiatingProposals(String clientId) =>
+      '/v1/proposals/negotiating-with/$clientId';
 
   static String serviceReviews(String serviceId) =>
       '/v1/reviews/services/$serviceId';
@@ -86,8 +83,8 @@ class ChatApiPaths {
       '/v1/chat/services/$serviceId/messages';
   static String userMessages(String userId) =>
       '/v1/chat/users/$userId/messages';
-  static String serviceConversations(String serviceId) =>
-      '/v1/chat/services/$serviceId/conversations';
+  static const conversations = '/v1/chat/conversations';
+  static const ensureConversation = '/v1/chat/conversations/ensure';
 }
 
 class PaymentsApiPaths {

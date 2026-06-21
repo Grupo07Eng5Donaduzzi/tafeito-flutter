@@ -3,9 +3,10 @@ import '../../../../core/network/api_paths.dart';
 import '../models/chat_message_dto.dart';
 
 abstract interface class ChatRemoteDataSource {
-  Future<List<ChatMessageDto>> findUserMessages({
-    required String userId,
-    int limit = 50,
+  Future<List<ChatConversationDto>> getConversations();
+
+  Future<ChatEnsureResponseDto> ensureConversation({
+    required String participantId,
   });
 
   Future<List<ChatMessageDto>> findConversationMessages({
@@ -19,6 +20,11 @@ abstract interface class ChatRemoteDataSource {
     required String recipientId,
     required String content,
   });
+
+  Future<List<ChatMessageDto>> findUserMessages({
+    required String userId,
+    int limit = 50,
+  });
 }
 
 class ApiChatRemoteDataSource implements ChatRemoteDataSource {
@@ -28,15 +34,25 @@ class ApiChatRemoteDataSource implements ChatRemoteDataSource {
   final ApiClient _apiClient;
 
   @override
-  Future<List<ChatMessageDto>> findUserMessages({
-    required String userId,
-    int limit = 50,
+  Future<List<ChatConversationDto>> getConversations() async {
+    final response = await _apiClient.get(ChatApiPaths.conversations);
+    final unwrapped = unwrapJsonData(response);
+    final list = unwrapped is List ? asJsonList(unwrapped) : <Object?>[];
+    return list
+        .whereType<Map>()
+        .map((json) => ChatConversationDto.fromJson(asJsonObject(json)))
+        .toList();
+  }
+
+  @override
+  Future<ChatEnsureResponseDto> ensureConversation({
+    required String participantId,
   }) async {
-    final response = await _apiClient.get(
-      ChatApiPaths.userMessages(userId),
-      queryParameters: {'limit': '$limit'},
+    final response = await _apiClient.post(
+      ChatApiPaths.ensureConversation,
+      body: {'participantId': participantId},
     );
-    return _extractMessages(response);
+    return ChatEnsureResponseDto.fromJson(asJsonObject(unwrapJsonData(response)));
   }
 
   @override
@@ -69,6 +85,18 @@ class ApiChatRemoteDataSource implements ChatRemoteDataSource {
       },
     );
     return ChatMessageDto.fromJson(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<List<ChatMessageDto>> findUserMessages({
+    required String userId,
+    int limit = 50,
+  }) async {
+    final response = await _apiClient.get(
+      ChatApiPaths.userMessages(userId),
+      queryParameters: {'limit': '$limit'},
+    );
+    return _extractMessages(response);
   }
 
   List<ChatMessageDto> _extractMessages(Object? response) {

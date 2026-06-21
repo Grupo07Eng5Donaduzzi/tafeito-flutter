@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_paths.dart';
 import '../models/create_quote_request.dart';
-import '../models/negotiation_message_dto.dart';
 import '../models/quote_dto.dart';
 import '../models/respond_quote_request.dart';
 
@@ -20,7 +19,9 @@ abstract interface class QuotesRemoteDataSource {
   Future<QuoteDto> acceptProposal(String proposalId);
   Future<PaymentCheckDto> checkPayment(String proposalId);
   Future<QuoteDto> rejectProposal(String proposalId, {String? reason});
-  Future<QuoteDto> contestProposal(String proposalId, String reason);
+  Future<ContestResponseDto> contestProposal(String proposalId, String reason);
+  Future<ReviseResponseDto> reviseProposal(String proposalId, double amount);
+  Future<List<QuoteDto>> getNegotiatingProposals(String clientId);
   Future<void> declineRequest(String requestId);
   Future<void> providerConfirmCompletion(String proposalId);
   Future<void> clientConfirmCompletion(String proposalId);
@@ -29,9 +30,6 @@ abstract interface class QuotesRemoteDataSource {
     required int rating,
     String? comment,
   });
-  Future<List<NegotiationMessageDto>> getNegotiationMessages(String proposalId);
-  Future<NegotiationMessageDto> sendRevisedProposal(
-      String proposalId, double amount);
   Future<List<QuoteDto>> getClientHistory();
   Future<List<QuoteDto>> getProviderHistory();
   Future<void> uploadInvoice(
@@ -114,21 +112,36 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
     final body = <String, Object?>{
       if (reason != null && reason.isNotEmpty) 'reason': reason,
     };
-    // API returns 204 No Content — build synthetic DTO with new status
     await _apiClient.patch(ApiPaths.rejectProposal(proposalId), body: body);
-    return QuoteDto(
-        id: proposalId, serviceName: '', status: 'REJECTED', createdAt: '');
+    return const QuoteDto(
+        id: '', serviceName: '', status: 'REJECTED', createdAt: '');
   }
 
   @override
-  Future<QuoteDto> contestProposal(String proposalId, String reason) async {
-    // API returns 204 No Content — build synthetic DTO with new status
-    await _apiClient.patch(
+  Future<ContestResponseDto> contestProposal(
+      String proposalId, String reason) async {
+    final response = await _apiClient.patch(
       ApiPaths.contestProposal(proposalId),
       body: {'reason': reason},
     );
-    return QuoteDto(
-        id: proposalId, serviceName: '', status: 'NEGOTIATING', createdAt: '');
+    return ContestResponseDto.fromJson(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<ReviseResponseDto> reviseProposal(
+      String proposalId, double amount) async {
+    final response = await _apiClient.patch(
+      ApiPaths.reviseProposal(proposalId),
+      body: {'amount': amount},
+    );
+    return ReviseResponseDto.fromJson(asJsonObject(unwrapJsonData(response)));
+  }
+
+  @override
+  Future<List<QuoteDto>> getNegotiatingProposals(String clientId) async {
+    final response =
+        await _apiClient.get(ApiPaths.negotiatingProposals(clientId));
+    return _extractProposals(response);
   }
 
   @override
@@ -159,31 +172,6 @@ class ApiQuotesRemoteDataSource implements QuotesRemoteDataSource {
         if (comment != null && comment.isNotEmpty) 'comment': comment,
       },
     );
-  }
-
-  @override
-  Future<List<NegotiationMessageDto>> getNegotiationMessages(
-      String proposalId) async {
-    final response =
-        await _apiClient.get(ApiPaths.negotiationMessages(proposalId));
-    final unwrapped = unwrapJsonData(response);
-    final list = unwrapped is List ? asJsonList(unwrapped) : <Object?>[];
-    return list
-        .whereType<Map>()
-        .map((json) => NegotiationMessageDto.fromJson(
-            json.map((k, v) => MapEntry(k.toString(), v))))
-        .toList();
-  }
-
-  @override
-  Future<NegotiationMessageDto> sendRevisedProposal(
-      String proposalId, double amount) async {
-    final response = await _apiClient.post(
-      ApiPaths.revisedProposal(proposalId),
-      body: {'amount': amount, 'message': ''},
-    );
-    return NegotiationMessageDto.fromJson(
-        asJsonObject(unwrapJsonData(response)));
   }
 
   @override

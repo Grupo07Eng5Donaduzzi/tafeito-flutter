@@ -1,17 +1,17 @@
 class ChatMessageDto {
   const ChatMessageDto({
     required this.id,
-    required this.serviceId,
     required this.conversationId,
     required this.senderId,
     required this.recipientId,
     required this.content,
     required this.status,
     required this.createdAt,
+    this.serviceId,
   });
 
   final String id;
-  final String serviceId;
+  final String? serviceId;
   final String conversationId;
   final String senderId;
   final String recipientId;
@@ -22,7 +22,7 @@ class ChatMessageDto {
   factory ChatMessageDto.fromJson(Map<String, Object?> json) {
     return ChatMessageDto(
       id: json['id']?.toString() ?? '',
-      serviceId: json['serviceId']?.toString() ?? '',
+      serviceId: json['serviceId']?.toString(),
       conversationId: json['conversationId']?.toString() ?? '',
       senderId: json['senderId']?.toString() ?? '',
       recipientId: json['recipientId']?.toString() ?? '',
@@ -36,17 +36,17 @@ class ChatMessageDto {
 class ChatConversationDto {
   const ChatConversationDto({
     required this.id,
-    required this.serviceId,
+    required this.otherParticipantId,
     required this.participantIds,
-    this.proposalId,
     this.lastMessageAt,
+    this.isActive = true,
   });
 
   final String id;
-  final String serviceId;
-  final String? proposalId;
+  final String otherParticipantId;
   final List<String> participantIds;
   final DateTime? lastMessageAt;
+  final bool isActive;
 
   factory ChatConversationDto.fromJson(Map<String, Object?> json) {
     final participants = <String>[];
@@ -57,10 +57,27 @@ class ChatConversationDto {
 
     return ChatConversationDto(
       id: json['id']?.toString() ?? '',
-      serviceId: json['serviceId']?.toString() ?? '',
-      proposalId: json['proposalId']?.toString(),
+      otherParticipantId: json['otherParticipantId']?.toString() ?? '',
       participantIds: participants,
       lastMessageAt: DateTime.tryParse(json['lastMessageAt']?.toString() ?? ''),
+      isActive: json['isActive'] == true,
+    );
+  }
+}
+
+class ChatEnsureResponseDto {
+  const ChatEnsureResponseDto({
+    required this.conversationId,
+    required this.isNew,
+  });
+
+  final String conversationId;
+  final bool isNew;
+
+  factory ChatEnsureResponseDto.fromJson(Map<String, Object?> json) {
+    return ChatEnsureResponseDto(
+      conversationId: json['conversationId']?.toString() ?? '',
+      isNew: json['isNew'] == true,
     );
   }
 }
