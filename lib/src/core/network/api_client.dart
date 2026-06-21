@@ -283,7 +283,7 @@ class HttpApiClient implements ApiClient {
         }
       }
     } on Object {
-
+      return 'Erro ${response.statusCode} ao chamar a API.';
     }
 
     return 'Erro ${response.statusCode} ao chamar a API.';

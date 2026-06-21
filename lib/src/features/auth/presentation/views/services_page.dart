@@ -292,7 +292,11 @@ class _InProgressTabState extends State<_InProgressTab> {
   }
 
   Future<void> _openChat(QuoteDto proposal) async {
-    final otherPartyId = proposal.otherPartyId ?? '';
+    final otherPartyId = proposal.partyIdFor(
+          isProvider: widget.isProvider,
+          currentUserId: widget.sessionManager.session?.user.id,
+        ) ??
+        '';
     if (otherPartyId.isEmpty) return;
 
     final result = await widget.chatRepository
@@ -310,8 +314,7 @@ class _InProgressTabState extends State<_InProgressTab> {
         builder: (_) => ChatThreadPage(
           conversationId: conversationId,
           recipientId: otherPartyId,
-          otherPartyName: proposal.otherPartyName ??
-              (widget.isProvider ? 'Cliente' : 'Prestador'),
+          otherPartyName: proposal.partyNameFor(isProvider: widget.isProvider),
           currentUserId: widget.sessionManager.session?.user.id ?? '',
           chatRepository: widget.chatRepository,
           token: widget.sessionManager.session?.accessToken ?? '',
@@ -382,9 +385,7 @@ class _ProposalCard extends StatelessWidget {
   final VoidCallback onChat;
 
   String get _otherPartyLabel {
-    final name = proposal.otherPartyName;
-    if (name != null && name.isNotEmpty) return name;
-    return isProvider ? 'Cliente' : 'Prestador';
+    return proposal.partyNameFor(isProvider: isProvider);
   }
 
   String get _mainButtonLabel {
@@ -408,9 +409,8 @@ class _ProposalCard extends StatelessWidget {
   }
 
   String get _subtitle {
-    final date = proposal.createdAt.isNotEmpty
-        ? _formatDate(proposal.createdAt)
-        : '';
+    final date =
+        proposal.createdAt.isNotEmpty ? _formatDate(proposal.createdAt) : '';
     final value = proposal.proposedValue ?? proposal.estimatedHoursValue ?? '';
     final parts = [
       if (date.isNotEmpty) date,
@@ -446,8 +446,7 @@ class _ProposalCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: statusIsActive
                       ? const Color(0xFFECFDF5)
@@ -469,9 +468,7 @@ class _ProposalCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            proposal.serviceName.isNotEmpty
-                ? proposal.serviceName
-                : 'Serviço',
+            proposal.serviceName.isNotEmpty ? proposal.serviceName : 'Serviço',
             style: const TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 14,
@@ -1245,8 +1242,7 @@ class _InvoiceUploadSheetState extends State<_InvoiceUploadSheet> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'Enviando: $_pickedFileName…',
-                style: const TextStyle(
-                    fontSize: 13, color: AppTheme.textMuted),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
               ),
             ),
           Row(
@@ -1255,9 +1251,8 @@ class _InvoiceUploadSheetState extends State<_InvoiceUploadSheet> {
                 child: AppSecondaryButton(
                   label: 'Pular',
                   dark: false,
-                  onPressed: _uploading
-                      ? null
-                      : () => Navigator.of(context).pop(),
+                  onPressed:
+                      _uploading ? null : () => Navigator.of(context).pop(),
                 ),
               ),
               const SizedBox(width: 12),

@@ -193,7 +193,8 @@ class QuotesHomeViewModel extends ChangeNotifier {
     );
   }
 
-  Future<String?> negotiate(String proposalId, {String? counterProposal}) async {
+  Future<String?> negotiate(String proposalId,
+      {String? counterProposal}) async {
     _actionLoading = true;
     _actionError = null;
     notifyListeners();
@@ -252,6 +253,12 @@ class QuotesHomeViewModel extends ChangeNotifier {
                   qrCode: data.qrCode ?? existing.qrCode,
                   qrCodeBase64: data.qrCodeBase64 ?? existing.qrCodeBase64,
                   ticketUrl: data.ticketUrl ?? existing.ticketUrl,
+                  serviceId: data.serviceId ?? existing.serviceId,
+                  invoiceFile: data.invoiceFile ?? existing.invoiceFile,
+                  clientId: data.clientId ?? existing.clientId,
+                  clientName: data.clientName ?? existing.clientName,
+                  providerId: data.providerId ?? existing.providerId,
+                  providerName: data.providerName ?? existing.providerName,
                 )
               : data;
           _received = List.of(_received)..[index] = updated;

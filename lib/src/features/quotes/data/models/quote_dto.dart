@@ -18,6 +18,10 @@ class QuoteDto {
     this.ticketUrl,
     this.serviceId,
     this.invoiceFile,
+    this.clientId,
+    this.clientName,
+    this.providerId,
+    this.providerName,
   });
 
   final String id;
@@ -38,6 +42,31 @@ class QuoteDto {
   final String? ticketUrl;
   final String? serviceId;
   final String? invoiceFile;
+  final String? clientId;
+  final String? clientName;
+  final String? providerId;
+  final String? providerName;
+
+  String? partyIdFor({
+    required bool isProvider,
+    String? currentUserId,
+  }) {
+    final current = _emptyToNull(currentUserId);
+    if (current != null) {
+      if (current == clientId) return providerId ?? otherPartyId;
+      if (current == providerId) return clientId ?? otherPartyId;
+    }
+
+    return isProvider
+        ? (clientId ?? otherPartyId)
+        : (providerId ?? otherPartyId);
+  }
+
+  String partyNameFor({required bool isProvider}) {
+    return (isProvider ? clientName : providerName) ??
+        otherPartyName ??
+        (isProvider ? 'Cliente' : 'Prestador');
+  }
 
   factory QuoteDto.fromBudgetRequest(Map<String, Object?> json) {
     final photosRaw = json['photos'];
@@ -67,6 +96,10 @@ class QuoteDto {
     String? otherPartyId;
     String? description;
     String? serviceId;
+    String? clientId;
+    String? clientName;
+    String? providerId;
+    String? providerName;
 
     if (budgetRequest is Map) {
       final service = budgetRequest['service'];
@@ -78,22 +111,53 @@ class QuoteDto {
 
       final client = budgetRequest['client'];
       final provider = budgetRequest['provider'];
-      otherPartyName = (client is Map ? client['name']?.toString() : null) ??
-          (provider is Map ? provider['name']?.toString() : null);
+      final serviceProvider = service is Map ? service['provider'] : null;
+      clientId = _emptyToNull(
+        budgetRequest['clientId'] ?? (client is Map ? client['id'] : null),
+      );
+      clientName = _emptyToNull(client is Map ? client['name'] : null);
+      providerId = _emptyToNull(
+        json['providerId'] ??
+            budgetRequest['providerId'] ??
+            (provider is Map ? provider['id'] : null) ??
+            (service is Map ? service['providerId'] : null) ??
+            (serviceProvider is Map ? serviceProvider['id'] : null),
+      );
+      providerName = _emptyToNull(
+        (provider is Map ? provider['name'] : null) ??
+            (serviceProvider is Map ? serviceProvider['name'] : null),
+      );
+      otherPartyName = clientName ?? providerName;
       otherPartyId = _emptyToNull(
-        (client is Map ? client['id'] : null) ??
-            (provider is Map ? provider['id'] : null),
+        clientId ?? providerId,
       );
       description = budgetRequest['description']?.toString();
       serviceId = _emptyToNull(
-        (service is Map ? service['id'] : null) ??
-            budgetRequest['serviceId'],
+        (service is Map ? service['id'] : null) ?? budgetRequest['serviceId'],
       );
     } else {
       final reqId = json['requestId']?.toString() ?? '';
       serviceName =
           reqId.length >= 8 ? 'Proposta #${reqId.substring(0, 8)}' : 'Proposta';
     }
+
+    final proposalClient = json['client'];
+    final proposalProvider = json['provider'];
+    clientId ??= _emptyToNull(
+      json['clientId'] ?? (proposalClient is Map ? proposalClient['id'] : null),
+    );
+    clientName ??= _emptyToNull(
+      proposalClient is Map ? proposalClient['name'] : null,
+    );
+    providerId ??= _emptyToNull(
+      json['providerId'] ??
+          (proposalProvider is Map ? proposalProvider['id'] : null),
+    );
+    providerName ??= _emptyToNull(
+      proposalProvider is Map ? proposalProvider['name'] : null,
+    );
+    otherPartyName ??= clientName ?? providerName;
+    otherPartyId ??= clientId ?? providerId;
 
     String? proposedValue;
     final rawAmount = json['amount'];
@@ -129,6 +193,10 @@ class QuoteDto {
       ticketUrl: _emptyToNull(json['ticketUrl']),
       serviceId: serviceId,
       invoiceFile: _emptyToNull(json['invoiceFile']),
+      clientId: clientId,
+      clientName: clientName,
+      providerId: providerId,
+      providerName: providerName,
     );
   }
 }
@@ -195,7 +263,8 @@ class ContestResponseDto {
           ? QuoteDto.fromProposal(
               proposalJson.map((k, v) => MapEntry(k.toString(), v)),
             )
-          : const QuoteDto(id: '', serviceName: '', status: 'NEGOTIATING', createdAt: ''),
+          : const QuoteDto(
+              id: '', serviceName: '', status: 'NEGOTIATING', createdAt: ''),
       conversationId: json['conversationId']?.toString() ?? '',
       isNew: json['isNew'] == true,
     );
@@ -218,7 +287,8 @@ class ReviseResponseDto {
           ? QuoteDto.fromProposal(
               proposalJson.map((k, v) => MapEntry(k.toString(), v)),
             )
-          : const QuoteDto(id: '', serviceName: '', status: 'PENDING', createdAt: ''),
+          : const QuoteDto(
+              id: '', serviceName: '', status: 'PENDING', createdAt: ''),
       conversationId: json['conversationId']?.toString() ?? '',
     );
   }

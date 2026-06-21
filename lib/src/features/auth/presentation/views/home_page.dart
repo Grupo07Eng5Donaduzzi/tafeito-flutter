@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/result/result.dart';
 import '../../../../core/session/session_manager.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_ui.dart';
@@ -186,13 +187,21 @@ class _HomePageState extends State<HomePage> {
             animation: _viewModel,
             builder: (context, _) {
               return switch (_selectedTab) {
-                0 => _SentList(viewModel: _viewModel),
+                0 => _SentList(
+                    viewModel: _viewModel,
+                    quotesRepository: widget.quotesRepository,
+                    chatRepository: widget.chatRepository,
+                    currentUserId: widget.sessionManager.session?.user.id ?? '',
+                    accessToken:
+                        widget.sessionManager.session?.accessToken ?? '',
+                  ),
                 1 => _ReceivedList(
                     viewModel: _viewModel,
                     quotesRepository: widget.quotesRepository,
                     chatRepository: widget.chatRepository,
                     currentUserId: widget.sessionManager.session?.user.id ?? '',
-                    accessToken: widget.sessionManager.session?.accessToken ?? '',
+                    accessToken:
+                        widget.sessionManager.session?.accessToken ?? '',
                   ),
                 _ => _RequestsList(viewModel: _viewModel),
               };
@@ -530,9 +539,19 @@ class _BecomeProviderSheetState extends State<_BecomeProviderSheet> {
 }
 
 class _SentList extends StatelessWidget {
-  const _SentList({required this.viewModel});
+  const _SentList({
+    required this.viewModel,
+    required this.quotesRepository,
+    required this.chatRepository,
+    required this.currentUserId,
+    required this.accessToken,
+  });
 
   final QuotesHomeViewModel viewModel;
+  final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
+  final String currentUserId;
+  final String accessToken;
 
   @override
   Widget build(BuildContext context) {
@@ -558,20 +577,102 @@ class _SentList extends StatelessWidget {
         itemCount: viewModel.sent.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          return _SentCard(quote: viewModel.sent[index]);
+          return _SentCard(
+            quote: viewModel.sent[index],
+            quotesRepository: quotesRepository,
+            chatRepository: chatRepository,
+            currentUserId: currentUserId,
+            accessToken: accessToken,
+          );
         },
       ),
     );
   }
 }
 
-class _SentCard extends StatelessWidget {
-  const _SentCard({required this.quote});
+class _SentCard extends StatefulWidget {
+  const _SentCard({
+    required this.quote,
+    required this.quotesRepository,
+    required this.chatRepository,
+    required this.currentUserId,
+    required this.accessToken,
+  });
 
   final QuoteDto quote;
+  final QuotesRepository quotesRepository;
+  final ChatRepository chatRepository;
+  final String currentUserId;
+  final String accessToken;
+
+  @override
+  State<_SentCard> createState() => _SentCardState();
+}
+
+class _SentCardState extends State<_SentCard> {
+  bool _openingChat = false;
+
+  bool get _canOpenChat {
+    final status = widget.quote.status.toLowerCase();
+    return status != 'rejected' &&
+        status != 'recusado' &&
+        status != 'cancelled' &&
+        status != 'cancelado';
+  }
+
+  Future<void> _openChat() async {
+    final recipientId = widget.quote.partyIdFor(
+      isProvider: true,
+      currentUserId: widget.currentUserId,
+    );
+
+    if (recipientId == null || recipientId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível identificar o cliente da conversa.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _openingChat = true);
+    final result = await widget.chatRepository.ensureConversation(
+      participantId: recipientId,
+    );
+    if (!mounted) return;
+    setState(() => _openingChat = false);
+
+    switch (result) {
+      case Success(:final data):
+        if (data.conversationId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Conversa não encontrada.')),
+          );
+          return;
+        }
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ChatThreadPage(
+              conversationId: data.conversationId,
+              recipientId: recipientId,
+              otherPartyName: widget.quote.partyNameFor(isProvider: true),
+              currentUserId: widget.currentUserId,
+              chatRepository: widget.chatRepository,
+              token: widget.accessToken,
+              isProvider: true,
+              quotesRepository: widget.quotesRepository,
+            ),
+          ),
+        );
+      case Failure(:final message):
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final quote = widget.quote;
     return AppCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -585,17 +686,15 @@ class _SentCard extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          if (quote.otherPartyName != null) ...[
-            const SizedBox(height: 3),
-            Text(
-              quote.otherPartyName!,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+          const SizedBox(height: 3),
+          Text(
+            quote.partyNameFor(isProvider: true),
+            style: const TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
-          ],
+          ),
           const SizedBox(height: 10),
           const Text(
             'Valor proposto',
@@ -625,6 +724,18 @@ class _SentCard extends StatelessWidget {
               _StatusPill(status: quote.status),
             ],
           ),
+          if (_canOpenChat) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: AppSecondaryButton(
+                label: _openingChat ? 'Abrindo...' : 'Abrir chat',
+                dark: quote.status.toLowerCase() == 'negotiating' ||
+                    quote.status.toLowerCase() == 'negociando',
+                onPressed: _openingChat ? null : _openChat,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -864,12 +975,19 @@ class _ReceivedCard extends StatelessWidget {
   }
 
   void _openChatThread(BuildContext context, String conversationId) {
+    final recipientId = quote.partyIdFor(
+          isProvider: false,
+          currentUserId: currentUserId,
+        ) ??
+        quote.otherPartyId ??
+        '';
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatThreadPage(
           conversationId: conversationId,
-          recipientId: quote.otherPartyId ?? '',
-          otherPartyName: quote.otherPartyName ?? 'Prestador',
+          recipientId: recipientId,
+          otherPartyName: quote.partyNameFor(isProvider: false),
           currentUserId: currentUserId,
           chatRepository: chatRepository,
           token: accessToken,
