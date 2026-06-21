@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -25,17 +26,40 @@ class PixPaymentPage extends StatefulWidget {
 
 class _PixPaymentPageState extends State<PixPaymentPage> {
   late Future<Result<PaymentCheckDto>> _paymentFuture;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _paymentFuture = widget.quotesRepository.checkPayment(widget.quote.id);
+    _startPolling();
   }
 
-  void _refresh() {
-    setState(() {
-      _paymentFuture = widget.quotesRepository.checkPayment(widget.quote.id);
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      final result = await widget.quotesRepository.checkPayment(widget.quote.id);
+      if (!mounted) return;
+      if (result case Success(:final data) when data.paid) {
+        _pollingTimer?.cancel();
+        _navigateToSuccess();
+        return;
+      }
+      setState(() {
+        _paymentFuture = Future.value(result);
+      });
     });
+  }
+
+  void _navigateToSuccess() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const PaymentSuccessPage()),
+    );
   }
 
   @override
@@ -50,19 +74,6 @@ class _PixPaymentPageState extends State<PixPaymentPage> {
         final qrCodeBase64 = payment?.qrCodeBase64 ?? quote.qrCodeBase64;
         final amount = quote.proposedValue ?? '200,00';
         final status = payment?.status ?? quote.status;
-
-        if (payment?.paid == true) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              return;
-            }
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => const PaymentSuccessPage(),
-              ),
-            );
-          });
-        }
 
         return Scaffold(
           backgroundColor: Colors.white,
@@ -79,15 +90,7 @@ class _PixPaymentPageState extends State<PixPaymentPage> {
                 padding: const EdgeInsets.only(left: 8),
               ),
             ),
-            actions: [
-              IconButton(
-                tooltip: 'Atualizar pagamento',
-                onPressed: snapshot.connectionState == ConnectionState.waiting
-                    ? null
-                    : _refresh,
-                icon: const Icon(Icons.refresh, size: 20),
-              ),
-            ],
+            actions: const [],
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
