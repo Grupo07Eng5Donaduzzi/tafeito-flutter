@@ -81,6 +81,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 
   Future<void> _load() async {
+    if (widget.conversationId.isEmpty) {
+      setState(() {
+        _error = 'Conversa não disponível no momento.';
+        _isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
