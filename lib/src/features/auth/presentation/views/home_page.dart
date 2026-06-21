@@ -165,9 +165,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   const Spacer(),
-                  if (_viewModel.received.isNotEmpty)
+                  if (_viewModel.received.any((q) => q.status == 'PENDING'))
                     AppPill(
-                      label: '${_viewModel.received.length} nova',
+                      label: '${_viewModel.received.where((q) => q.status == 'PENDING').length} nova',
                       color: AppTheme.primary,
                       textColor: Colors.white,
                     ),
@@ -275,9 +275,9 @@ class _ClientHomeView extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      if (viewModel.received.isNotEmpty)
+                      if (viewModel.received.any((q) => q.status == 'PENDING'))
                         AppPill(
-                          label: '${viewModel.received.length} nova',
+                          label: '${viewModel.received.where((q) => q.status == 'PENDING').length} nova',
                           color: AppTheme.primary,
                           textColor: Colors.white,
                         ),
@@ -970,7 +970,7 @@ class _ReceivedCard extends StatelessWidget {
 
   Future<void> _negotiate(BuildContext context) async {
     final conversationId = await viewModel.negotiate(quote.id);
-    if (!context.mounted || conversationId == null) return;
+    if (!context.mounted || conversationId == null || conversationId.isEmpty) return;
     _openChatThread(context, conversationId);
   }
 
@@ -1109,7 +1109,7 @@ class _RequestCardState extends State<_RequestCard> {
           if (quote.createdAt.isNotEmpty) ...[
             const SizedBox(height: 3),
             Text(
-              quote.createdAt,
+              _formatDate(quote.createdAt),
               style: const TextStyle(
                 color: AppTheme.textMuted,
                 fontSize: 11,
@@ -1256,4 +1256,10 @@ class _StatusPill extends StatelessWidget {
           : Colors.white,
     );
   }
+}
+
+String _formatDate(String raw) {
+  final dt = DateTime.tryParse(raw);
+  if (dt == null) return raw;
+  return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
 }

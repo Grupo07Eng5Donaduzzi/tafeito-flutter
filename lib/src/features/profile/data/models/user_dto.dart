@@ -1,3 +1,5 @@
+import 'package:tafeito_flutter/src/core/network/api_paths.dart';
+
 class UserDto {
   const UserDto({
     required this.id,
@@ -19,6 +21,13 @@ class UserDto {
       return null;
     }
 
+    String? resolveAvatar(dynamic raw) {
+      final value = (raw ?? '').toString();
+      if (value.isEmpty) return null;
+      if (value.startsWith('http')) return value;
+      return '${ApiPaths.mainBaseUrl}/uploads/avatars/$value';
+    }
+
     return UserDto(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -32,9 +41,7 @@ class UserDto {
       hourlyRate: json['hourlyRate'] == null
           ? null
           : (json['hourlyRate'] as num).toDouble(),
-      avatarUrl: (json['avatarUrl'] ?? '').toString().isEmpty
-          ? null
-          : (json['avatarUrl'] ?? '').toString(),
+      avatarUrl: resolveAvatar(json['avatarUrl']),
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
     );

@@ -1,3 +1,5 @@
+import 'package:tafeito_flutter/src/core/network/api_paths.dart';
+
 class ReviewDto {
   const ReviewDto({
     required this.id,
@@ -97,12 +99,15 @@ class ServiceDto {
       unit: _unitFromPricingType(
         _emptyToNull(json['unit'] ?? json['duration'] ?? json['pricingType']),
       ),
-      imageUrl: _emptyToNull(
-        json['imageUrl'] ??
-            json['image_url'] ??
-            json['image'] ??
-            json['photoUrl'] ??
-            json['photo'],
+      imageUrl: _resolveUploadUrl(
+        _emptyToNull(
+          json['imageUrl'] ??
+              json['image_url'] ??
+              json['image'] ??
+              json['photoUrl'] ??
+              json['photo'],
+        ),
+        'services',
       ),
       providerName: _emptyToNull(
         providerName ?? json['providerName'] ?? json['userName'],
@@ -124,6 +129,12 @@ String? _emptyToNull(Object? value) {
   }
 
   return text;
+}
+
+String? _resolveUploadUrl(String? value, String folder) {
+  if (value == null) return null;
+  if (value.startsWith('http')) return value;
+  return '${ApiPaths.mainBaseUrl}/uploads/$folder/$value';
 }
 
 String? _unitFromPricingType(String? value) {

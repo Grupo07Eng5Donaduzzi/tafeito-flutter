@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 typedef JsonObject = Map<String, Object?>;
 
@@ -165,6 +166,7 @@ class HttpApiClient implements ApiClient {
           file.fieldName,
           file.bytes,
           filename: file.fileName,
+          contentType: _inferMediaType(file.bytes, file.fileName),
         ),
       );
     }
@@ -266,6 +268,32 @@ class HttpApiClient implements ApiClient {
     return cleanQueryParameters.isEmpty
         ? uri
         : uri.replace(queryParameters: cleanQueryParameters);
+  }
+
+  MediaType _inferMediaType(Uint8List bytes, String fileName) {
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x89 && bytes[1] == 0x50 &&
+        bytes[2] == 0x4E && bytes[3] == 0x47) {
+      return MediaType('image', 'png');
+    }
+    if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
+      return MediaType('image', 'jpeg');
+    }
+    if (bytes.length >= 12 &&
+        bytes[0] == 0x52 && bytes[1] == 0x49 &&
+        bytes[2] == 0x46 && bytes[3] == 0x46 &&
+        bytes[8] == 0x57 && bytes[9] == 0x45 &&
+        bytes[10] == 0x42 && bytes[11] == 0x50) {
+      return MediaType('image', 'webp');
+    }
+    final ext = fileName.split('.').last.toLowerCase();
+    return switch (ext) {
+      'jpg' || 'jpeg' => MediaType('image', 'jpeg'),
+      'png' => MediaType('image', 'png'),
+      'webp' => MediaType('image', 'webp'),
+      'pdf' => MediaType('application', 'pdf'),
+      _ => MediaType('application', 'octet-stream'),
+    };
   }
 
   String _readErrorMessage(http.Response response) {
