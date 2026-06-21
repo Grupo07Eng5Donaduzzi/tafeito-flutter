@@ -193,7 +193,6 @@ class QuotesHomeViewModel extends ChangeNotifier {
     );
   }
 
-  /// Returns the conversationId on success, or null on failure.
   Future<String?> negotiate(String proposalId, {String? counterProposal}) async {
     _actionLoading = true;
     _actionError = null;

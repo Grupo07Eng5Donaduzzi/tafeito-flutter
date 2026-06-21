@@ -16,7 +16,7 @@ class CreateQuoteRequest {
   final String description;
   final String category;
   final String location;
-  final String requestDate; // ISO date: "2024-01-15"
+  final String requestDate;
   final List<String> photos;
 
   JsonObject toJson() => {

@@ -283,7 +283,7 @@ class HttpApiClient implements ApiClient {
         }
       }
     } on Object {
-      // Keep the generic message below when the server does not return JSON.
+
     }
 
     return 'Erro ${response.statusCode} ao chamar a API.';

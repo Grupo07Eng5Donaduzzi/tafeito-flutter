@@ -370,7 +370,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: Divider(color: Color(0xFFF3F4F6)),
               ),
-              // ---- Pagamentos ----
+
               const Text(
                 'Pagamentos',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

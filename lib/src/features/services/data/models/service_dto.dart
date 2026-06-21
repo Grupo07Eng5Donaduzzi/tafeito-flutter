@@ -61,7 +61,6 @@ class ServiceDto {
       providerId = provider['id']?.toString();
     }
 
-    // Parse reviews block (from findByIdWithDetails response)
     String? rating = _emptyToNull(
       json['rating'] ?? json['averageRating'] ?? json['ratingAverage'],
     );

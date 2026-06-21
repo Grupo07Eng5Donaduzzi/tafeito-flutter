@@ -93,7 +93,7 @@ class StubPasswordRecoveryRemoteDataSource
   Future<void> requestPasswordResetCode(
     PasswordRecoveryEmailRequest request,
   ) async {
-    // TODO: substituir pelo Firebase/backend quando o envio de email existir.
+
     await Future<void>.delayed(const Duration(milliseconds: 700));
   }
 
@@ -101,7 +101,7 @@ class StubPasswordRecoveryRemoteDataSource
   Future<void> verifyPasswordResetCode(
     PasswordRecoveryCodeRequest request,
   ) async {
-    // TODO: validar codigo real pelo Firebase/backend.
+
     await Future<void>.delayed(const Duration(milliseconds: 700));
 
     if (request.code.trim().length < 4) {
@@ -111,7 +111,7 @@ class StubPasswordRecoveryRemoteDataSource
 
   @override
   Future<void> confirmPasswordReset(PasswordResetRequest request) async {
-    // TODO: confirmar reset de senha pelo Firebase/backend.
+
     await Future<void>.delayed(const Duration(milliseconds: 700));
   }
 }

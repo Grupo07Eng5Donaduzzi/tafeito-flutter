@@ -27,8 +27,8 @@ class QuoteDto {
   final String? otherPartyName;
   final String? otherPartyId;
   final String? description;
-  final String? proposedValue; // monetary amount (R$)
-  final String? estimatedHoursValue; // estimated hours (for provider view)
+  final String? proposedValue;
+  final String? estimatedHoursValue;
   final String? serviceDate;
   final String? location;
   final List<String> photos;
@@ -39,7 +39,6 @@ class QuoteDto {
   final String? serviceId;
   final String? invoiceFile;
 
-  // From BudgetRequestDto (budget-requests endpoints)
   factory QuoteDto.fromBudgetRequest(Map<String, Object?> json) {
     final photosRaw = json['photos'];
     final photos = <String>[];
@@ -61,7 +60,6 @@ class QuoteDto {
     );
   }
 
-  // From ProposalDto (proposals endpoints)
   factory QuoteDto.fromProposal(Map<String, Object?> json) {
     final budgetRequest = json['budgetRequest'];
     String serviceName;
@@ -97,7 +95,6 @@ class QuoteDto {
           reqId.length >= 8 ? 'Proposta #${reqId.substring(0, 8)}' : 'Proposta';
     }
 
-    // Monetary amount shown to the client (Recebidos)
     String? proposedValue;
     final rawAmount = json['amount'];
     if (rawAmount != null) {
@@ -105,7 +102,6 @@ class QuoteDto {
       if (val != null) proposedValue = val.toStringAsFixed(2);
     }
 
-    // Estimated hours shown to the provider (Enviados)
     String? estimatedHoursValue;
     final rawHours = json['estimatedHours'];
     if (rawHours != null) {

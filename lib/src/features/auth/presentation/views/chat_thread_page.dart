@@ -122,7 +122,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       return;
     }
 
-    // Fallback para REST quando WebSocket não está conectado
     setState(() => _isSending = true);
     final result = await widget.chatRepository.sendConversationMessage(
       conversationId: widget.conversationId,
@@ -260,10 +259,6 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Message bubble
-// ---------------------------------------------------------------------------
-
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.content,
@@ -318,10 +313,6 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Footer with text input + optional "Atualizar proposta" button
-// ---------------------------------------------------------------------------
 
 class _Footer extends StatelessWidget {
   const _Footer({
@@ -406,10 +397,6 @@ class _Footer extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Bottom sheet: provider selects a NEGOTIATING proposal and sends revised amount
-// ---------------------------------------------------------------------------
 
 class _UpdateProposalSheet extends StatefulWidget {
   const _UpdateProposalSheet({

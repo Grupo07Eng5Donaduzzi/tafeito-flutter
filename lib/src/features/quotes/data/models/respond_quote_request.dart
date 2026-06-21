@@ -15,5 +15,4 @@ class CreateProposalRequest {
       };
 }
 
-// Keep old name as alias so existing imports don't break
 typedef RespondQuoteRequest = CreateProposalRequest;

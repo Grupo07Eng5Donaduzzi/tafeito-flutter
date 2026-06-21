@@ -165,10 +165,6 @@ class _ServicesPageState extends State<ServicesPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Em andamento tab
-// ---------------------------------------------------------------------------
-
 class _InProgressTab extends StatefulWidget {
   const _InProgressTab({
     required this.isProvider,
@@ -325,7 +321,6 @@ class _InProgressTabState extends State<_InProgressTab> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -661,10 +656,6 @@ class _ReviewModalState extends State<_ReviewModal> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Explorar tab
-// ---------------------------------------------------------------------------
 
 class _ExploreTab extends StatefulWidget {
   const _ExploreTab({
@@ -1017,10 +1008,6 @@ class _ServiceCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Meus serviços tab
-// ---------------------------------------------------------------------------
-
 class _MyServicesTab extends StatelessWidget {
   const _MyServicesTab({
     required this.viewModel,
@@ -1173,10 +1160,6 @@ class _MyServiceCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Invoice upload sheet (shown after provider confirms completion)
-// ---------------------------------------------------------------------------
-
 class _InvoiceUploadSheet extends StatefulWidget {
   const _InvoiceUploadSheet({
     required this.proposalId,
@@ -1304,10 +1287,6 @@ class _InvoiceUploadSheetState extends State<_InvoiceUploadSheet> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Shared image widget
-// ---------------------------------------------------------------------------
 
 class _ServiceImage extends StatelessWidget {
   const _ServiceImage({

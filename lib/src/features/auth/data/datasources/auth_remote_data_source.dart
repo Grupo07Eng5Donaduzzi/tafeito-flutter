@@ -42,7 +42,7 @@ class ApiAuthRemoteDataSource implements AuthRemoteDataSource {
 class StubAuthRemoteDataSource implements AuthRemoteDataSource {
   @override
   Future<AuthSessionResponse> register(RegisterRequest request) async {
-    // TODO: substituir por chamada HTTP quando o endpoint de cadastro existir.
+
     await Future<void>.delayed(const Duration(milliseconds: 700));
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final expiresAt = DateTime.now().add(const Duration(days: 30));
@@ -63,7 +63,7 @@ class StubAuthRemoteDataSource implements AuthRemoteDataSource {
 
   @override
   Future<AuthSessionResponse> login(LoginRequest request) async {
-    // TODO: substituir por chamada HTTP quando o endpoint de login existir.
+
     await Future<void>.delayed(const Duration(milliseconds: 700));
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final expiresAt = DateTime.now().add(const Duration(days: 30));
