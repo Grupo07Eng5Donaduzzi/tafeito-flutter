@@ -67,7 +67,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 104),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 [
@@ -134,7 +134,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           ),
         ],
       ),
-      bottomSheet: _BottomBar(service: _service),
+      bottomNavigationBar: _BottomBar(service: _service),
     );
   }
 }
