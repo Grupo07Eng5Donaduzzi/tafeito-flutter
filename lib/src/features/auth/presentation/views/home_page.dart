@@ -98,6 +98,7 @@ class _HomePageState extends State<HomePage> {
     final didBecomeProvider = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
@@ -751,6 +752,7 @@ class _SentCardState extends State<_SentCard> {
     final amount = await showModalBottomSheet<double>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),

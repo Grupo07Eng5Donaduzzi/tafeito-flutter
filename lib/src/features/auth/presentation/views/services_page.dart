@@ -242,6 +242,7 @@ class _InProgressTabState extends State<_InProgressTab> {
           await showModalBottomSheet(
             context: context,
             isScrollControlled: true,
+            useSafeArea: true,
             backgroundColor: Colors.white,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -280,6 +281,7 @@ class _InProgressTabState extends State<_InProgressTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
